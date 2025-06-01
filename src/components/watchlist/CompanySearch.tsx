@@ -137,97 +137,115 @@ const CompanySearch: React.FC<CompanySearchProps> = ({
     };
   }, [showResults, highlightedIndex, searchResults]);
   
-  // Update this function in your CompanySearch.tsx
-const handleAddToWatchlist = async (company: Company, e: React.MouseEvent) => {
-  e.stopPropagation();
-  
-  console.log('Adding company to watchlist:', company);
-  console.log('Target watchlist ID:', watchlistId);
-  
-  if (!company.isin) {
-    console.error('Cannot add company without ISIN');
-    return;
-  }
-  
-  if (!watchlistId) {
-    console.error('Cannot add company: No watchlist ID provided');
-    return;
-  }
-  
-  try {
-    // Get the authentication token from localStorage
-    const token = localStorage.getItem('authToken');
+  // Handle company selection
+  const handleCompanyClick = (company: Company) => {
+    setSearchTerm('');
+    setShowResults(false);
+    setHighlightedIndex(-1);
     
-    if (!token) {
-      console.error('Authentication token not found - user may need to login again');
+    // Call the callback if provided
+    if (onCompanySelected) {
+      onCompanySelected(company);
+    }
+  };
+  
+  // Update this function in your CompanySearch.tsx
+  const handleAddToWatchlist = async (company: Company, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    console.log('Adding company to watchlist:', company);
+    console.log('Target watchlist ID:', watchlistId);
+    
+    if (!company.isin) {
+      console.error('Cannot add company without ISIN');
       return;
     }
     
-    // Use direct API call with the exact format the server expects AND proper authentication
-    const requestData = {
-      operation: 'add_isin',
-      watchlist_id: watchlistId,
-      isin: company.isin
-    };
+    if (!watchlistId) {
+      console.error('Cannot add company: No watchlist ID provided');
+      return;
+    }
+
+    // Type assertion to ensure TypeScript knows watchlistId is defined
+    const currentWatchlistId: string = watchlistId;
     
-    console.log('Sending request to add to watchlist:', requestData);
-    
-    // Include the Authorization header
-    const response = await axios.post('/api/watchlist', requestData, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    console.log('Server response:', response.data);
-    
-    // Now also call the context method (which should already handle authentication internally)
     try {
-      const result = await addToWatchlist(company, watchlistId);
-      console.log('Context method result:', result);
-    } catch (contextError) {
-      console.error('Error calling context method:', contextError);
-      // If context method fails but direct API call succeeded, we still consider it a success
-    }
-    
-    // Force component to re-render
-    setRefreshKey(prev => prev + 1);
-    
-    // Show success message to user
-    // You can use a toast library or any notification method you prefer
-    alert('Company added to watchlist successfully!');
-    
-    // Also force search results to update
-    if (searchTerm) {
-      setSearchTerm(prev => {
-        const temp = prev + ' ';
-        setTimeout(() => setSearchTerm(prev), 10);
-        return temp;
-      });
-    }
-  } catch (error) {
-    console.error('Error adding company to watchlist:', error);
-    
-    // Get more detailed error information
-    if (axios.isAxiosError(error) && error.response) {
-      console.error('Server returned error:', error.response.status, error.response.data);
+      // Get the authentication token from localStorage
+      const token = localStorage.getItem('authToken');
       
-      // Handle specific error cases
-      if (error.response.status === 401) {
-        alert('Your session has expired. Please login again.');
-      } else if (error.response.status === 409) {
-        alert('This company is already in your watchlist.');
-      } else {
-        alert(`Failed to add company: ${error.response.data?.message || 'Unknown error'}`);
+      if (!token) {
+        console.error('Authentication token not found - user may need to login again');
+        return;
       }
-    } else {
-      alert('Failed to add company to watchlist. Please try again.');
+      
+      // Use direct API call with the exact format the server expects AND proper authentication
+      const requestData = {
+        operation: 'add_isin',
+        watchlist_id: currentWatchlistId,
+        isin: company.isin
+      };
+      
+      console.log('Sending request to add to watchlist:', requestData);
+      
+      // Include the Authorization header
+      const response = await axios.post('/api/watchlist', requestData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Server response:', response.data);
+      
+      // Now also call the context method (which should already handle authentication internally)
+      try {
+        const result = await addToWatchlist(company, currentWatchlistId);
+        console.log('Context method result:', result);
+      } catch (contextError) {
+        console.error('Error calling context method:', contextError);
+        // If context method fails but direct API call succeeded, we still consider it a success
+      }
+      
+      // Force component to re-render
+      setRefreshKey(prev => prev + 1);
+      
+      // Show success message to user
+      // You can use a toast library or any notification method you prefer
+      alert('Company added to watchlist successfully!');
+      
+      // Also force search results to update
+      if (searchTerm) {
+        setSearchTerm(prev => {
+          const temp = prev + ' ';
+          setTimeout(() => setSearchTerm(prev), 10);
+          return temp;
+        });
+      }
+    } catch (error) {
+      console.error('Error adding company to watchlist:', error);
+      
+      // Get more detailed error information
+      if (axios.isAxiosError(error) && error.response) {
+        console.error('Server returned error:', error.response.status, error.response.data);
+        
+        // Handle specific error cases
+        if (error.response.status === 401) {
+          alert('Your session has expired. Please login again.');
+        } else if (error.response.status === 409) {
+          alert('This company is already in your watchlist.');
+        } else {
+          alert(`Failed to add company: ${error.response.data?.message || 'Unknown error'}`);
+        }
+      } else {
+        alert('Failed to add company to watchlist. Please try again.');
+      }
     }
-  }
-};
+  };
+  
   // Check if a company is already in the current watchlist
   const isCompanyInWatchlist = (companyId: string): boolean => {
+    // Only check if watchlistId is provided
+    if (!watchlistId) return false;
     return isWatched(companyId, watchlistId);
   };
   
@@ -317,21 +335,24 @@ const handleAddToWatchlist = async (company: Company, e: React.MouseEvent) => {
                           )}
                         </div>
                       </div>
-                      <button
-                        className={`p-1.5 rounded-lg flex-shrink-0 ${
-                          isInCurrentWatchlist 
-                            ? 'bg-indigo-600 text-white' 
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        } transition-colors`}
-                        onClick={(e) => handleAddToWatchlist(company, e)}
-                        title={isInCurrentWatchlist ? "Added to watchlist" : "Add to watchlist"}
-                      >
-                        {isInCurrentWatchlist ? (
-                          <Check size={16} />
-                        ) : (
-                          <Plus size={16} />
-                        )}
-                      </button>
+                      {/* Only show the add button if watchlistId is provided */}
+                      {watchlistId && (
+                        <button
+                          className={`p-1.5 rounded-lg flex-shrink-0 ${
+                            isInCurrentWatchlist 
+                              ? 'bg-indigo-600 text-white' 
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          } transition-colors`}
+                          onClick={(e) => handleAddToWatchlist(company, e)}
+                          title={isInCurrentWatchlist ? "Added to watchlist" : "Add to watchlist"}
+                        >
+                          {isInCurrentWatchlist ? (
+                            <Check size={16} />
+                          ) : (
+                            <Plus size={16} />
+                          )}
+                        </button>
+                      )}
                     </div>
                   </li>
                 );

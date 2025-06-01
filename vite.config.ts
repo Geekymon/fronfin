@@ -9,13 +9,13 @@ export default defineConfig({
     proxy: {
       // Proxy API requests to the backend server
       '/api': {
-        target: 'http://164.52.192.163',
+        target: 'https://fin.anshulkr.com',
         changeOrigin: true,
         secure: false,
       },
       // Proxy WebSocket connections
       '/socket.io': {
-        target: 'http://164.52.192.163',
+        target: 'https://fin.anshulkr.com',
         ws: true,
         changeOrigin: true,
       },

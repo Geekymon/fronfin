@@ -8,7 +8,7 @@ import { sortByNewestDate } from './utils/dateUtils';
 const getBaseUrl = () => {
   // In development, use the backend port directly
   if (process.env.NODE_ENV === 'development') {
-    return 'http://164.52.192.163/api';
+    return 'https://fin.anshulkr.com/api';
   }
   // In production, use the relative path which will be handled by the server
   return '/api';
@@ -866,7 +866,7 @@ export const setupSocketConnection = (onNewAnnouncement: (data: any) => void) =>
   const port = process.env.NODE_ENV === 'development' ? '5001' : window.location.port;
   
   // Create the WebSocket URL that explicitly points to the backend server
-  const socketUrl = "http://164.52.192.163/";
+  const socketUrl = "https://fin.anshulkr.com/";
   console.log(`Connecting to WebSocket server at: ${socketUrl}`);
   
   // Create socket connection with proper configuration
