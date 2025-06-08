@@ -19,7 +19,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   setSelectedCompany,
   onNavigate
 }) => {
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [showFilterModal, setShowFilterModal] = useState(false);
   
   // Get the title based on the active page

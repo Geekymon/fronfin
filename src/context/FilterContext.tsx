@@ -5,16 +5,24 @@ const getFormattedDate = (date: Date): string => {
   return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD format
 };
 
-// Default date range: 30 days ago to today
+// // Default date range: 30 days ago to today
+// const today = new Date();
+// const thirtyDaysAgo = new Date();
+// thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+// const defaultDateRange = {
+//   start: getFormattedDate(thirtyDaysAgo),
+//   end: getFormattedDate(today)
+// };
+// Default date range: just today
 const today = new Date();
-const thirtyDaysAgo = new Date();
-thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1);
 
 const defaultDateRange = {
-  start: getFormattedDate(thirtyDaysAgo),
+  start: getFormattedDate(yesterday),
   end: getFormattedDate(today)
 };
-
 // Define the filter state interface
 interface FilterState {
   searchTerm: string;

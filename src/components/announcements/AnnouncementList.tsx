@@ -122,7 +122,7 @@ const AnnouncementList: React.FC<AnnouncementListProps> = ({
   const currentPageItems = getCurrentPageItems();
   
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-full">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-full text-sm">
       {/* Table Header - Apple-inspired style */}
       <div 
         ref={tableHeaderRef} 
@@ -133,20 +133,20 @@ const AnnouncementList: React.FC<AnnouncementListProps> = ({
           <div className="col-span-3 flex items-center">
             <span>Company</span>
             <button 
-              className="ml-2 p-1 rounded-full hover:bg-gray-200/60 text-gray-400 hover:text-gray-700 focus:outline-none transition-colors"
+              className="ml-2 p-1 rounded-full hover:bg-gray-200/60 text-gray-400 hover:text-gray-700 focus:outline-none transition-colors text-sm"
               onClick={(e) => {
-                e.stopPropagation();
-                // This should show the filter modal - calling the parent component's method
-                if (typeof window !== 'undefined') {
-                  // Dispatch a custom event to open the filter modal
-                  const event = new CustomEvent('openFilterModal');
-                  window.dispatchEvent(event);
-                }
+              e.stopPropagation();
+              // This should show the filter modal - calling the parent component's method
+              if (typeof window !== 'undefined') {
+                // Dispatch a custom event to open the filter modal
+                const event = new CustomEvent('openFilterModal');
+                window.dispatchEvent(event);
+              }
               }}
               title="Filter Companies"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
               </svg>
             </button>
           </div>

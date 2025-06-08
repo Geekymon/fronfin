@@ -3,6 +3,8 @@ import { ArrowLeft, Star, ChevronRight, ExternalLink, Calendar, Tag, CircleDot }
 import { ProcessedAnnouncement } from '../../api';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
+import remarkBreaks from 'remark-breaks';
+
 // Import the required plugins for table support
 import remarkGfm from 'remark-gfm';
 
@@ -24,88 +26,22 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
   // Helper function to sanitize and prepare markdown content
   const prepareMarkdown = (text: string): string => {
     if (!text) return '';
-    
-    // Check if we should even process this text - sometimes announcements might come in with duplicate processing
-    if (text.includes('\n\n##') || text.includes('\n\n#')) {
-      // Text might already have excessive line breaks - return with minimal processing
-      return text.replace(/(?<!\*)\*(?!\*)/g, '\\*') // Escape single asterisks
-                .replace(/(?<!_)_(?!_)/g, '\\_');    // Escape single underscores
-    }
-    
-    // Convert pipe-separated text to proper markdown tables
+
+    // Remove everything above and including the "Structured Narrative" line
+    const structuredLine = "Structured Narrative";
     const lines = text.split('\n');
-    let inTable = false;
-    let tableStart = -1;
-    let enhancedText = '';
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      
-      // Detect the start of a potential pipe-table (has multiple pipe characters)
-      if (!inTable && line.split('|').length > 2 && line.includes('|')) {
-        inTable = true;
-        tableStart = i;
-        enhancedText += line + '\n';
-      } 
-      // If we're in a table and the line doesn't have pipes or is empty, end the table
-      else if (inTable && (line.split('|').length <= 2 || line.trim() === '')) {
-        inTable = false;
-        
-        // Go back and insert proper markdown table formatting
-        const tableLines = lines.slice(tableStart, i);
-        if (tableLines.length > 0) {
-          // Get the header row
-          const headerRow = tableLines[0];
-          const columns = headerRow.split('|').filter(col => col.trim() !== '').length;
-          
-          // Create a separation row for markdown tables if it doesn't exist
-          const needsSeparator = tableLines.length === 1 || 
-                               !tableLines[1].includes('---') ||
-                               tableLines[1].split('|').length <= 2;
-          
-          if (needsSeparator) {
-            const separationRow = '|' + Array(columns).fill('---').join('|') + '|';
-            
-            // Insert the separation row after the header
-            enhancedText = enhancedText.replace(headerRow + '\n', headerRow + '\n' + separationRow + '\n');
-          }
-        }
-        
-        enhancedText += line + '\n';
-      } 
-      else {
-        enhancedText += line + '\n';
-      }
-    }
-    
-    // Handle case where table is at the end of the text
-    if (inTable) {
-      const tableLines = lines.slice(tableStart);
-      if (tableLines.length > 0) {
-        const headerRow = tableLines[0];
-        const columns = headerRow.split('|').filter(col => col.trim() !== '').length;
-        
-        // Check if there's already a separator row
-        const needsSeparator = tableLines.length === 1 || 
-                             !tableLines[1].includes('---') ||
-                             tableLines[1].split('|').length <= 2;
-        
-        if (needsSeparator) {
-          const separationRow = '|' + Array(columns).fill('---').join('|') + '|';
-          enhancedText = enhancedText.replace(headerRow + '\n', headerRow + '\n' + separationRow + '\n');
-        }
-      }
-    }
-    
-    // Only do minimal escaping without adding extra line breaks
-    enhancedText = enhancedText
-      .replace(/(?<!\*)\*(?!\*)/g, '\\*') // Escape single asterisks not used for emphasis
-      .replace(/(?<!_)_(?!_)/g, '\\_');   // Escape single underscores not used for emphasis
-    
-    // Log the difference for debugging
-    console.log('Original length:', text.length, 'Enhanced length:', enhancedText.length);
-    
-    return enhancedText;
+    const startIndex = lines.findIndex(line =>
+      line.toLowerCase().includes(structuredLine.toLowerCase())
+    );
+
+    const trimmedText = startIndex !== -1
+      ? lines.slice(startIndex + 1).join('\n')
+      : text;
+
+    // Escape single asterisks and underscores (not part of Markdown formatting)
+    return trimmedText
+      .replace(/(?<!\*)\*(?!\*)/g, '\\*') // Escape single asterisks
+      .replace(/(?<!_)_(?!_)/g, '\\_');   // Escape single underscores
   };
 
   // Extract category and headline from API response if available
@@ -128,26 +64,26 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
   // Special handler for text that looks like a table but isn't formatted as markdown
   const renderContent = () => {
     // For content that looks like a voting result table (has lots of pipe characters)
-    if (announcement.detailedContent && announcement.detailedContent.includes('voting results') && 
-        announcement.detailedContent.split('|').length > 10) {
+    if (announcement.detailedContent && announcement.detailedContent.includes('voting results') &&
+      announcement.detailedContent.split('|').length > 10) {
       return (
         <div className="text-sm text-gray-600 leading-relaxed">
-          <div dangerouslySetInnerHTML={{ 
-            __html: formatVotingTable(announcement.detailedContent) 
+          <div dangerouslySetInnerHTML={{
+            __html: formatVotingTable(announcement.detailedContent)
           }} />
         </div>
       );
     }
-    
+
     // Use console.log to debug - check the processed content
     const processedContent = prepareMarkdown(announcement.detailedContent);
     console.log('Processed content length:', processedContent.length);
-    
+
     // Otherwise use normal markdown rendering with table support
     return (
       <div className="text-sm text-gray-600 leading-relaxed">
         <div className="markdown-wrapper">
-          <ReactMarkdown 
+          <ReactMarkdown
             rehypePlugins={[rehypeRaw]}
             remarkPlugins={[remarkGfm]} // Add remarkGfm for table support
           >
@@ -157,13 +93,13 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
       </div>
     );
   };
-  
+
   // Special formatter for voting result tables
   const formatVotingTable = (content: string) => {
     const lines = content.split('\n');
     let formattedHtml = '';
     let inTableSection = false;
-    
+
     lines.forEach(line => {
       // Detect headings and item titles
       if (line.startsWith('Item No.') || /^[A-Za-z\s]+:/.test(line)) {
@@ -178,7 +114,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
         if (!inTableSection) {
           formattedHtml += '<table class="min-w-full divide-y divide-gray-200 my-4">';
           inTableSection = true;
-          
+
           // Add special handling for header rows
           if (line.includes('Particulars') || line.includes('No. of Members')) {
             formattedHtml += '<thead><tr>';
@@ -191,7 +127,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
             return;
           }
         }
-        
+
         // Regular table rows
         formattedHtml += '<tr>';
         line.split('|').forEach(cell => {
@@ -213,17 +149,17 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
         }
       }
     });
-    
+
     // Close any open table
     if (inTableSection) {
       formattedHtml += '</tbody></table>';
     }
-    
+
     return formattedHtml;
   };
 
   return (
-    <div className="fixed right-0 top-0 w-2/5 h-full bg-white shadow-lg z-30 overflow-y-auto transform transition-transform duration-300 ease-out border-l border-gray-100">
+    <div className="fixed right-0 top-0 w-2/3 h-full bg-white shadow-lg z-30 overflow-y-auto transform transition-transform duration-300 ease-out border-l border-gray-100">
       <style>{`
         .markdown-wrapper {
           font-size: 14px;
@@ -309,22 +245,22 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
 
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <button 
+          <button
             className="p-2 rounded-full text-gray-400 hover:text-gray-900 hover:bg-gray-100/80 transition-colors"
             onClick={onClose}
           >
             <ArrowLeft size={18} />
           </button>
-          <button 
+          <button
             className="p-2 rounded-full text-gray-400 hover:text-gray-900 hover:bg-gray-100/80 transition-colors"
             onClick={() => onSave(announcement.id)}
           >
-            {isSaved ? 
-              <Star size={18} className="fill-current text-black" /> : 
+            {isSaved ?
+              <Star size={18} className="fill-current text-black" /> :
               <Star size={18} />}
           </button>
         </div>
-        
+
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-900">{announcement.company}</h2>
           <div className="flex items-center mt-2">
@@ -345,7 +281,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
             <h3 className="text-lg font-medium text-gray-900">{getHeadline()}</h3>
           </div>
         )}
-        
+
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-6">
             <div className="flex items-start">
@@ -355,7 +291,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                 <div className="text-sm font-medium text-gray-900">{getCategory()}</div>
               </div>
             </div>
-            
+
             <div className="flex items-start">
               <Calendar size={16} className="text-gray-400 mt-0.5 mr-2" />
               <div>
@@ -364,46 +300,45 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-start">
             <CircleDot size={16} className="text-gray-400 mt-0.5 mr-2" />
             <div>
               <div className="text-xs font-medium text-gray-500 uppercase mb-1">Sentiment</div>
               <div className="flex items-center">
-                <span className={`inline-block w-2.5 h-2.5 mr-2 rounded-full ${
-                  announcement.sentiment === 'Positive' ? 'bg-emerald-500' :
+                <span className={`inline-block w-2.5 h-2.5 mr-2 rounded-full ${announcement.sentiment === 'Positive' ? 'bg-emerald-500' :
                   announcement.sentiment === 'Negative' ? 'bg-rose-500' : 'bg-amber-400'
-                } shadow-sm`}></span>
+                  } shadow-sm`}></span>
                 <span className="text-sm font-medium text-gray-900">{announcement.sentiment}</span>
               </div>
             </div>
           </div>
-          
+
           <div>
             <div className="text-xs font-medium text-gray-500 uppercase mb-2">Summary</div>
-                          <div className="text-sm text-gray-600 leading-relaxed p-4 bg-gray-50/70 rounded-2xl border border-gray-100/60">
-                {/* Add console log for debugging summary */}
-                {console.log('Summary length:', announcement.summary?.length || 0)}
-                <div className="markdown-wrapper">
-                  <ReactMarkdown 
-                    rehypePlugins={[rehypeRaw]}
-                    remarkPlugins={[remarkGfm]}
-                  >
-                    {prepareMarkdown(announcement.summary)}
-                  </ReactMarkdown>
-                </div>
+            <div className="text-sm text-gray-600 leading-relaxed p-4 bg-gray-50/70 rounded-2xl border border-gray-100/60">
+              {console.log('Summary length:', announcement.summary?.length || 0)}
+              <div className="markdown-wrapper">
+                <ReactMarkdown
+                  rehypePlugins={[rehypeRaw]}
+                  remarkPlugins={[remarkGfm,remarkBreaks]}
+
+                >
+                  {prepareMarkdown(announcement.summary)}
+                </ReactMarkdown>
               </div>
+            </div>
           </div>
-          
-          <div>
+
+          {/* <div>
             <div className="text-xs font-medium text-gray-500 uppercase mb-2">Details</div>
             {renderContent()}
-          </div>
+          </div> */}
         </div>
-        
+
         <div className="mt-8 pt-6 border-t border-gray-100">
           {announcement.url && (
-            <a 
+            <a
               href={announcement.url}
               target="_blank"
               rel="noopener noreferrer"

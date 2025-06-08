@@ -1034,53 +1034,55 @@ const mergeNewAnnouncements = useCallback((
           </div>
 
           {/* Pagination controls */}
-          {!isLoading && totalItems > 0 && (
+            {!isLoading && totalItems > 0 && (
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={handlePageChange}
             />
-          )}
-        </div>
-      </div>
+            )}
+          </div>
 
-      {/* Overlay when detail panel is open */}
-      {selectedDetail && (
-        <div
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-20"
-          onClick={() => setSelectedDetail(null)}
-        ></div>
-      )}
-
-      {/* Detail Panel */}
-      {selectedDetail && (
-        <DetailPanel
-          announcement={selectedDetail}
-          isSaved={savedFilings.includes(selectedDetail.id)}
-          onClose={() => setSelectedDetail(null)}
-          onSave={toggleSavedFiling}
-          onViewAllAnnouncements={(company) => {
-            // Find a matching announcement to get company details
-            const companyAnnouncement = announcements.find(a => a.company === company);
-            if (companyAnnouncement) {
-              const companyObj: Company = {
+          {/* Detail Panel - Now 50% width */}
+          {selectedDetail && (
+            <div className="fixed top-0 right-0 w-2/3 h-full bg-white shadow-xl z-30 border-l border-gray-200 overflow-auto">
+            <DetailPanel
+              announcement={selectedDetail}
+              isSaved={savedFilings.includes(selectedDetail.id)}
+              onClose={() => setSelectedDetail(null)}
+              onSave={toggleSavedFiling}
+              onViewAllAnnouncements={(company) => {
+              // Find a matching announcement to get company details
+              const companyAnnouncement = announcements.find(a => a.company === company);
+              if (companyAnnouncement) {
+                const companyObj: Company = {
                 id: companyAnnouncement.companyId,
                 name: company,
                 symbol: companyAnnouncement.ticker,
                 industry: companyAnnouncement.industry,
                 isin: companyAnnouncement.isin || ''
-              };
-              onCompanySelect(companyObj);
-            }
-          }}
-        />
-      )}
+                };
+                onCompanySelect(companyObj);
+              }
+              }}
+            />
+            </div>
+          )}
+          </div>
 
-      {/* Filter Modal */}
-      {showFilterModal && (
-        <FilterModal
-          onClose={() => setShowFilterModal(false)}
-          onApplyFilters={(appliedFilters) => {
+          {/* Backdrop for when detail panel is open - adjusted for 50% panel */}
+          {selectedDetail && (
+          <div
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-20"
+            onClick={() => setSelectedDetail(null)}
+          ></div>
+          )}
+
+          {/* Filter Modal */}
+          {showFilterModal && (
+          <FilterModal
+            onClose={() => setShowFilterModal(false)}
+            onApplyFilters={(appliedFilters) => {
             if (appliedFilters.categories) {
               setSelectedCategories(appliedFilters.categories);
             }

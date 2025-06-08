@@ -8,7 +8,7 @@ import { sortByNewestDate } from './utils/dateUtils';
 const getBaseUrl = () => {
   // In development, use the backend port directly
   if (process.env.NODE_ENV === 'development') {
-    return 'https://fin.anshulkr.com/api';
+    return 'http://localhost:8000/api';
   }
   // In production, use the relative path which will be handled by the server
   return '/api';

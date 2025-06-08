@@ -14,6 +14,7 @@ interface SidebarProps {
   onApplyFilters?: (categories: string[]) => void;
 }
 
+
 const Sidebar: React.FC<SidebarProps> = ({
   activePage,
   selectedCompany,
@@ -38,7 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [contextMenuPos, setContextMenuPos] = useState<{id: string, x: number, y: number} | null>(null);
   
   // Categories expansion state
-  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
+  const [categoriesExpanded, setCategoriesExpanded] = useState(true);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   
   // Categories list
@@ -103,7 +104,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // Apply selected category filters
   const applyFilters = () => {
+    console.log('Applying filters:', selectedCategories);
     if (onApplyFilters) {
+      console.log('Applying filters:', selectedCategories);
       onApplyFilters(selectedCategories);
     }
   };
@@ -168,7 +171,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       <div 
-        className={`fixed left-0 top-0 h-full bg-white shadow-md z-10 transition-all duration-300 ease-in-out ${
+        className={`fixed left-0 text-sm top-0 h-full bg-white shadow-md z-10 transition-all duration-300 ease-in-out ${
           sidebarExpanded ? 'w-64' : 'w-16'
         }`}
       >
@@ -201,7 +204,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               {sidebarExpanded && <span className="ml-3 font-medium">Home</span>}
             </button>
             
-            <button 
+            {/* <button 
               className={`flex items-center ${sidebarExpanded ? 'justify-start px-4' : 'justify-center'} py-2 rounded-xl w-full ${
                 activePage === 'company' ? 'text-black' : 'text-gray-400'
               } hover:bg-gray-100 transition-colors`}
@@ -209,7 +212,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             >
               <Search size={20} />
               {sidebarExpanded && <span className="ml-3 font-medium">Search</span>}
-            </button>
+            </button> */}
             
             {/* Categories button - when clicked it expands to show categories list */}
             <button 
@@ -230,18 +233,18 @@ const Sidebar: React.FC<SidebarProps> = ({
               )}
             </button>
             
-            <button 
+            {/* <button 
               className={`flex items-center ${sidebarExpanded ? 'justify-start px-4' : 'justify-center'} py-2 rounded-xl w-full text-gray-400 hover:bg-gray-100 transition-colors`}
             >
               <Bell size={20} />
               {sidebarExpanded && <span className="ml-3 font-medium">Alerts</span>}
-            </button>
+            </button> */}
           </div>
           
           {/* Categories Section - only visible when expanded */}
           {sidebarExpanded && categoriesExpanded && (
             <div className="px-4 py-2 mb-6">
-              <div className="max-h-72 overflow-y-auto pr-1 mt-2">
+              <div className="max-h-72 overflow-y-auto pr-1 mt-2 ">
                 {categories.map(category => (
                   <label 
                     key={category} 

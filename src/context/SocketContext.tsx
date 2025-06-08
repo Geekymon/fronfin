@@ -55,7 +55,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
   const showAnnouncementToast = useCallback((announcement: ProcessedAnnouncement) => {
     // Get current time
     const now = Date.now();
-    
+
     // Check if we've already shown a toast for this announcement recently (within 30 seconds)
     if (toastNotificationCache.has(announcement.id)) {
       const lastShown = toastNotificationCache.get(announcement.id);
@@ -64,11 +64,11 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
         return;
       }
     }
-    
+
     // Add to cache with current timestamp
     toastNotificationCache.set(announcement.id, now);
     console.log(`SHOWING TOAST for ${announcement.id}`);
-    
+
     // Show the toast with a unique ID
     toast.success(
       <div>
@@ -86,7 +86,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
         icon: '🔔',
       }
     );
-    
+
     // Clean up old entries from cache periodically
     const cutoff = now - 60000; // 1 minute ago
     toastNotificationCache.forEach((timestamp, id) => {
@@ -98,54 +98,33 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
 
   // Enhanced function to process new announcements with better deduplication
   const processNewAnnouncement = useCallback((data: any) => {
-    // Prevent concurrent processing of the same announcement
     if (processingAnnouncement.current) {
       console.log("Already processing an announcement, waiting...");
       setTimeout(() => processNewAnnouncement(data), 100);
       return;
     }
-    
+
     processingAnnouncement.current = true;
     console.log("Socket context: Processing new announcement:", data);
 
     try {
-      // Skip empty data
       if (!data) {
         console.warn("Received empty announcement data");
-        processingAnnouncement.current = false;
         return;
       }
 
-      // Extract a unique ID for deduplication - be more thorough
-      const announcementId = data.corp_id || data.id || data.dedup_id || 
-        (data.companyname && data.summary ? 
-          `${data.companyname}-${data.summary.substring(0, 20)}` : 
+      const announcementId = data.corp_id || data.id || data.dedup_id ||
+        (data.companyname && data.summary ?
+          `${data.companyname}-${data.summary.substring(0, 20)}` :
           `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
 
-      // Skip if we've already processed this ID
       if (processedAnnouncementIds.current.has(announcementId)) {
         console.log(`Already processed announcement ${announcementId}, skipping`);
-        processingAnnouncement.current = false;
         return;
       }
 
-      // Also check for similar content in existing announcements
-      const existingSimilar = newAnnouncements.find(a => 
-        a.company === (data.companyname || data.company) && 
-        a.summary && data.summary &&
-        a.summary.substring(0, 50) === (data.ai_summary || data.summary || "").substring(0, 50)
-      );
-      
-      if (existingSimilar) {
-        console.log(`Found similar announcement already processed, skipping`);
-        processingAnnouncement.current = false;
-        return;
-      }
-
-      // Mark as processed to prevent duplicates
       processedAnnouncementIds.current.add(announcementId);
 
-      // Prepare processed announcement
       const processedAnnouncement: ProcessedAnnouncement = {
         id: announcementId,
         company: data.companyname || data.company || "Unknown Company",
@@ -155,64 +134,23 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
         summary: data.ai_summary || data.summary || "",
         detailedContent: data.ai_summary || data.summary || "",
         isin: data.isin || data.ISIN || "",
-        sentiment: "Neutral", // Default sentiment
-        isNew: true // Mark as new
+        sentiment: "Neutral",
+        isNew: true
       };
 
-      console.log("Socket context: Created processed announcement:", processedAnnouncement);
-
-      // Enhance the announcement data
       try {
         const enhancedAnnouncement = enhanceAnnouncementData([processedAnnouncement])[0];
-
-        // Update newAnnouncements state - IMPORTANT for components to rerender
-        setNewAnnouncements(prev => {
-          // Check if we already have this announcement in state
-          if (prev.some(a => a.id === enhancedAnnouncement.id)) {
-            return prev; // No change needed
-          }
-          const updated = [...prev, enhancedAnnouncement];
-          return sortByNewestDate(updated);
-        });
-
-        // Dispatch a custom DOM event so components can react directly
-        // This is okay even if there might be duplicate events
-        const event = new CustomEvent('new-announcement-received', {
-          detail: enhancedAnnouncement
-        });
-        window.dispatchEvent(event);
-
-        // SHOW TOAST NOTIFICATION - but prevent duplicates
         showAnnouncementToast(enhancedAnnouncement);
-
-        // Call the callback without showing another toast
-        if (onNewAnnouncement) {
-          onNewAnnouncement(enhancedAnnouncement);
-        }
       } catch (enhanceError) {
         console.error("Error enhancing announcement:", enhanceError);
-        // Still try to use the basic announcement
-        setNewAnnouncements(prev => {
-          if (prev.some(a => a.id === processedAnnouncement.id)) {
-            return prev; // No change needed
-          }
-          const updated = [processedAnnouncement, ...prev];
-          return sortByNewestDate(updated);
-        });
-
-        // Still show notification, but prevent duplicates
         showAnnouncementToast(processedAnnouncement);
-
-        if (onNewAnnouncement) {
-          onNewAnnouncement(processedAnnouncement);
-        }
       }
     } catch (error) {
       console.error("Error processing announcement:", error);
     } finally {
       processingAnnouncement.current = false;
     }
-  }, [onNewAnnouncement, showAnnouncementToast, newAnnouncements]);
+  }, [showAnnouncementToast]);
 
   // Initialize socket connection
   useEffect(() => {
@@ -230,7 +168,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
         }
         processNewAnnouncement(data);
       });
-      
+
       setSocket(socketConnection);
       socketRef.current = socketConnection;
 

@@ -121,20 +121,22 @@ const AnnouncementRow: React.FC<AnnouncementRowProps> = ({
 
       {/* Company information */}
       <div className="col-span-3 pr-4">
-        <div
-          className={`font-medium company-name truncate inline-block relative group ${isHighlighted ? 'text-blue-700' : ''}`}
-          onClick={(e) => onCompanyClick(companyDisplayName, e)}
-        >
-          {companyDisplayName}
-          <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-black/80 transition-all duration-300 ease-in-out group-hover:w-full opacity-80"></span>
+        <div className="overflow-hidden">
+          <div
+        className={`text-sm font-bold company-name break-words inline-block relative group ${isHighlighted ? 'text-blue-700' : ''}`}
+        onClick={(e) => onCompanyClick(companyDisplayName, e)}
+          >
+        {companyDisplayName}
+        <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-black/80 transition-all duration-300 ease-in-out group-hover:w-full opacity-80"></span>
+          </div>
         </div>
         <div className="text-xs text-gray-500 mt-1 truncate flex items-center">
           {companyDisplaySymbol}
           {isHighlighted && (
-            <span className="ml-2 text-xs font-medium text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full flex items-center">
-              <Bell size={10} className="mr-1" />
-              NEW
-            </span>
+        <span className="ml-2 text-xs font-medium text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full flex items-center">
+          <Bell size={10} className="mr-1" />
+          NEW
+        </span>
           )}
         </div>
       </div>
