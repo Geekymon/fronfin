@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Home, Star, Bell, Search, Menu, ChevronRight, Plus, Edit, AlertTriangle, MoreHorizontal, Trash2, Filter, ChevronDown } from 'lucide-react';
+import { Home, Star, Bell, Search, Menu, ChevronRight, Plus, Edit, AlertTriangle, MoreHorizontal, Trash2, Filter, ChevronDown, Heart } from 'lucide-react';
 import { useWatchlist } from '../../context/WatchlistContext';
+import { useFilters } from '../../context/FilterContext';
 import CreateWatchlistModal from '../watchlist/CreateWatchlistModal.tsx';
 import RenameWatchlistModal from '../watchlist/RenameWatchlistModal';
 import ConfirmDeleteModal from '../watchlist/confirmDeleteModal';
@@ -11,9 +12,8 @@ interface SidebarProps {
   sidebarExpanded: boolean;
   setSidebarExpanded: (expanded: boolean) => void;
   onNavigate: (page: 'home' | 'watchlist' | 'company', params?: {watchlistId?: string}) => void;
-  onApplyFilters?: (categories: string[]) => void;
+  onFilterClick?: () => void;
 }
-
 
 const Sidebar: React.FC<SidebarProps> = ({
   activePage,
@@ -21,7 +21,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   sidebarExpanded,
   setSidebarExpanded,
   onNavigate,
-  onApplyFilters
+  onFilterClick
 }) => {
   const { 
     watchlists, 
@@ -32,6 +32,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteWatchlist
   } = useWatchlist();
   
+  // Use FilterContext for category and sentiment filtering
+  const { setSelectedCategories, setSelectedSentiments, filters } = useFilters();
+  
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -40,7 +43,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   
   // Categories expansion state
   const [categoriesExpanded, setCategoriesExpanded] = useState(true);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [localSelectedCategories, setLocalSelectedCategories] = useState<string[]>(filters.selectedCategories || []);
+  
+  // Sentiment expansion state
+  const [sentimentExpanded, setSentimentExpanded] = useState(true);
+  const [localSelectedSentiments, setLocalSelectedSentiments] = useState<string[]>(filters.selectedSentiments || []);
   
   // Categories list
   const categories = [
@@ -62,6 +69,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     "AGM/EGM", "Dividend", "Corporate Action", "Management Changes",
     "Strategic Update", "Other"
   ];
+
+  // Sentiment options
+  const sentiments = ["Positive", "Negative", "Neutral"];
 
   // Handle create watchlist
   const handleCreateWatchlist = (name: string) => {
@@ -93,37 +103,62 @@ const Sidebar: React.FC<SidebarProps> = ({
     onNavigate('watchlist', { watchlistId });
   };
 
-  // Toggle category selection
+  // Toggle category selection (local state)
   const toggleCategory = (category: string) => {
-    if (selectedCategories.includes(category)) {
-      setSelectedCategories(selectedCategories.filter(c => c !== category));
+    if (localSelectedCategories.includes(category)) {
+      setLocalSelectedCategories(localSelectedCategories.filter(c => c !== category));
     } else {
-      setSelectedCategories([...selectedCategories, category]);
+      setLocalSelectedCategories([...localSelectedCategories, category]);
+    }
+  };
+
+  // Toggle sentiment selection (local state)
+  const toggleSentiment = (sentiment: string) => {
+    if (localSelectedSentiments.includes(sentiment)) {
+      setLocalSelectedSentiments(localSelectedSentiments.filter(s => s !== sentiment));
+    } else {
+      setLocalSelectedSentiments([...localSelectedSentiments, sentiment]);
     }
   };
 
   // Apply selected category filters
-  const applyFilters = () => {
-    console.log('Applying filters:', selectedCategories);
-    if (onApplyFilters) {
-      console.log('Applying filters:', selectedCategories);
-      onApplyFilters(selectedCategories);
-    }
+  const applyCategoryFilters = () => {
+    console.log('Applying category filters:', localSelectedCategories);
+    setSelectedCategories(localSelectedCategories);
   };
 
-  // Clear all selected filters
-  const clearFilters = () => {
+  // Apply selected sentiment filters
+  const applySentimentFilters = () => {
+    console.log('Applying sentiment filters:', localSelectedSentiments);
+    setSelectedSentiments(localSelectedSentiments);
+  };
+
+  // Clear category filters
+  const clearCategoryFilters = () => {
+    setLocalSelectedCategories([]);
     setSelectedCategories([]);
+  };
+
+  // Clear sentiment filters
+  const clearSentimentFilters = () => {
+    setLocalSelectedSentiments([]);
+    setSelectedSentiments([]);
   };
 
   // Toggle categories section
   const toggleCategories = () => {
-    // If sidebar is not expanded, expand it first
     if (!sidebarExpanded) {
       setSidebarExpanded(true);
     }
-    // Toggle categories expansion
     setCategoriesExpanded(!categoriesExpanded);
+  };
+
+  // Toggle sentiment section
+  const toggleSentimentSection = () => {
+    if (!sidebarExpanded) {
+      setSidebarExpanded(true);
+    }
+    setSentimentExpanded(!sentimentExpanded);
   };
 
   // Show context menu for a watchlist
@@ -168,31 +203,25 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
   }, []);
 
+  // Sync local categories with filter context when filters change
+  React.useEffect(() => {
+    setLocalSelectedCategories(filters.selectedCategories || []);
+  }, [filters.selectedCategories]);
+
+  // Sync local sentiments with filter context when filters change
+  React.useEffect(() => {
+    setLocalSelectedSentiments(filters.selectedSentiments || []);
+  }, [filters.selectedSentiments]);
+
   return (
     <>
       <div 
-        className={`fixed left-0 text-sm top-0 h-full bg-white shadow-md z-10 transition-all duration-300 ease-in-out ${
+        className={`fixed left-0 text-sm top-16 h-[calc(100%-4rem)] bg-white shadow-md z-10 transition-all duration-300 ease-in-out ${
           sidebarExpanded ? 'w-64' : 'w-16'
         }`}
       >
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100">
-          <button 
-            onClick={() => onNavigate('home')}
-            className="w-10 h-10 bg-black rounded-2xl flex items-center justify-center text-white font-medium"
-          >
-            F
-          </button>
-          {sidebarExpanded && (
-            <button 
-              onClick={() => setSidebarExpanded(false)}
-              className="p-2 rounded-xl text-gray-400 hover:text-gray-900"
-            >
-              <ChevronRight size={18} />
-            </button>
-          )}
-        </div>
-        
-        <div className="flex flex-col h-[calc(100%-4rem)] pt-6 pb-4 overflow-y-auto">
+        <div className="flex flex-col h-full pt-6 pb-4 overflow-y-auto">
+          {/* Navigation Section */}
           <div className={`flex flex-col ${sidebarExpanded ? 'px-3' : 'items-center'} space-y-2 mb-6`}>
             <button 
               className={`flex items-center ${sidebarExpanded ? 'justify-start px-4' : 'justify-center'} py-2 rounded-xl w-full ${
@@ -203,81 +232,137 @@ const Sidebar: React.FC<SidebarProps> = ({
               <Home size={20} />
               {sidebarExpanded && <span className="ml-3 font-medium">Home</span>}
             </button>
-            
-            {/* <button 
-              className={`flex items-center ${sidebarExpanded ? 'justify-start px-4' : 'justify-center'} py-2 rounded-xl w-full ${
-                activePage === 'company' ? 'text-black' : 'text-gray-400'
-              } hover:bg-gray-100 transition-colors`}
-              onClick={() => onNavigate('company')}
-            >
-              <Search size={20} />
-              {sidebarExpanded && <span className="ml-3 font-medium">Search</span>}
-            </button> */}
-            
-            {/* Categories button - when clicked it expands to show categories list */}
-            <button 
-              className={`flex items-center ${sidebarExpanded ? 'justify-between px-4' : 'justify-center'} py-2 rounded-xl w-full ${
-                categoriesExpanded ? 'text-black bg-gray-100' : 'text-gray-400'
-              } hover:bg-gray-100 transition-colors`}
-              onClick={toggleCategories}
-            >
-              <div className="flex items-center">
-                <Filter size={20} />
-                {sidebarExpanded && <span className="ml-3 font-medium">Categories</span>}
-              </div>
-              {sidebarExpanded && (
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform ${categoriesExpanded ? 'rotate-180' : ''}`}
-                />
-              )}
-            </button>
-            
-            {/* <button 
-              className={`flex items-center ${sidebarExpanded ? 'justify-start px-4' : 'justify-center'} py-2 rounded-xl w-full text-gray-400 hover:bg-gray-100 transition-colors`}
-            >
-              <Bell size={20} />
-              {sidebarExpanded && <span className="ml-3 font-medium">Alerts</span>}
-            </button> */}
           </div>
-          
-          {/* Categories Section - only visible when expanded */}
-          {sidebarExpanded && categoriesExpanded && (
-            <div className="px-4 py-2 mb-6">
-              <div className="max-h-72 overflow-y-auto pr-1 mt-2 ">
-                {categories.map(category => (
-                  <label 
-                    key={category} 
-                    className="flex items-center px-3 py-2 rounded-lg cursor-pointer text-gray-600 hover:bg-gray-50 group transition-colors"
-                  >
-                    <input 
-                      type="checkbox" 
-                      checked={selectedCategories.includes(category)}
-                      onChange={() => toggleCategory(category)}
-                      className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black mr-3"
-                    />
-                    <span className="text-sm truncate">{category}</span>
-                  </label>
-                ))}
+
+          {/* FIXED: Filter Sections with proper spacing and alignment */}
+          {sidebarExpanded && (
+            <div className="px-3 mb-6">
+              {/* Filter Section Header */}
+              <div className="mb-4">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">Filters</h4>
               </div>
-              
-              {/* Filter action buttons */}
-              <div className="flex justify-between mt-3">
-                <button
-                  className="text-sm font-medium text-gray-500 hover:text-gray-700"
-                  onClick={clearFilters}
+
+              {/* Categories Filter */}
+              <div className="mb-4">
+                <button 
+                  className={`flex items-center justify-between w-full px-4 py-2 rounded-xl ${
+                    categoriesExpanded ? 'text-black bg-gray-100' : 'text-gray-400'
+                  } hover:bg-gray-100 transition-colors`}
+                  onClick={toggleCategories}
                 >
-                  Clear
+                  <div className="flex items-center">
+                    <Filter size={18} />
+                    <span className="ml-3 font-medium">Categories</span>
+                  </div>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${categoriesExpanded ? 'rotate-180' : ''}`}
+                  />
                 </button>
-                <button
-                  className="px-3 py-1 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-900"
-                  onClick={applyFilters}
-                >
-                  Apply
-                </button>
+                
+                {/* Categories Content */}
+                {categoriesExpanded && (
+                  <div className="mt-3 px-1">
+                    <div className="max-h-56 overflow-y-auto pr-1">
+                      {categories.map(category => (
+                        <label 
+                          key={category} 
+                          className="flex items-center px-3 py-2 rounded-lg cursor-pointer text-gray-600 hover:bg-gray-50 group transition-colors"
+                        >
+                          <input 
+                            type="checkbox" 
+                            checked={localSelectedCategories.includes(category)}
+                            onChange={() => toggleCategory(category)}
+                            className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black mr-3"
+                          />
+                          <span className="text-sm truncate">{category}</span>
+                        </label>
+                      ))}
+                    </div>
+                    
+                    {/* Category action buttons */}
+                    <div className="flex justify-between mt-3 px-3">
+                      <button
+                        className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                        onClick={clearCategoryFilters}
+                      >
+                        Clear
+                      </button>
+                      <button
+                        className="px-3 py-1 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-900"
+                        onClick={applyCategoryFilters}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              <div className="border-t border-gray-100 mt-4 pt-2"></div>
+
+              {/* FIXED: Sentiment Filter - Positioned directly below Categories */}
+              <div className="mb-4">
+                <button 
+                  className={`flex items-center justify-between w-full px-4 py-2 rounded-xl ${
+                    sentimentExpanded ? 'text-black bg-gray-100' : 'text-gray-400'
+                  } hover:bg-gray-100 transition-colors`}
+                  onClick={toggleSentimentSection}
+                >
+                  <div className="flex items-center">
+                    <Heart size={18} />
+                    <span className="ml-3 font-medium">Sentiment</span>
+                  </div>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${sentimentExpanded ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {/* Sentiment Content */}
+                {sentimentExpanded && (
+                  <div className="mt-3 px-1">
+                    <div className="space-y-1">
+                      {sentiments.map(sentiment => (
+                        <label 
+                          key={sentiment} 
+                          className="flex items-center px-3 py-2 rounded-lg cursor-pointer text-gray-600 hover:bg-gray-50 group transition-colors"
+                        >
+                          <input 
+                            type="checkbox" 
+                            checked={localSelectedSentiments.includes(sentiment)}
+                            onChange={() => toggleSentiment(sentiment)}
+                            className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black mr-3"
+                          />
+                          <span className="text-sm font-medium flex-1">{sentiment}</span>
+                          {/* Visual indicator for sentiment */}
+                          <span className={`w-2 h-2 rounded-full ${
+                            sentiment === 'Positive' ? 'bg-green-500' :
+                            sentiment === 'Negative' ? 'bg-red-500' : 'bg-yellow-500'
+                          }`}></span>
+                        </label>
+                      ))}
+                    </div>
+                    
+                    {/* Sentiment action buttons */}
+                    <div className="flex justify-between mt-3 px-3">
+                      <button
+                        className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                        onClick={clearSentimentFilters}
+                      >
+                        Clear
+                      </button>
+                      <button
+                        className="px-3 py-1 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-900"
+                        onClick={applySentimentFilters}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-gray-100 my-4"></div>
             </div>
           )}
           
@@ -295,7 +380,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               </div>
               
-              <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
+              <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
                 {watchlists.map(watchlist => (
                   <div 
                     key={watchlist.id} 
@@ -341,7 +426,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
           
-          {/* Collapsed View - Show watchlist icon only */}
+          {/* Collapsed View - Show icons only */}
           {!sidebarExpanded && (
             <div className="flex flex-col items-center pt-2 space-y-4">
               <button 
@@ -362,6 +447,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                 title="Categories"
               >
                 <Filter size={20} />
+              </button>
+
+              <button 
+                className={`p-2 rounded-xl ${
+                  sentimentExpanded ? 'text-black bg-gray-100' : 'text-gray-400 hover:bg-gray-100'
+                } transition-colors`}
+                onClick={toggleSentimentSection}
+                title="Sentiment"
+              >
+                <Heart size={20} />
               </button>
               
               <button 
@@ -392,7 +487,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           style={{ 
             top: contextMenuPos.y, 
             left: contextMenuPos.x,
-            // Ensure menu doesn't go off screen
             transform: `translate(${
               contextMenuPos.x + 200 > window.innerWidth ? '-100%' : '0'
             }, ${

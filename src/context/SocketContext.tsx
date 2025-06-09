@@ -1,4 +1,4 @@
-// src/context/SocketContext.tsx - Updated to fix duplicate notifications
+// src/context/SocketContext.tsx - Fixed to properly dispatch badge events
 
 import React, { createContext, useEffect, useState, useRef, useCallback, ReactNode, useContext, } from 'react';
 import { setupSocketConnection, ProcessedAnnouncement, enhanceAnnouncementData } from '../api';
@@ -48,15 +48,13 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
   const [newAnnouncements, setNewAnnouncements] = useState<ProcessedAnnouncement[]>([]);
   const activeRooms = useRef<Set<string>>(new Set());
   const socketRef = useRef<any>(null);
-  const processedAnnouncementIds = useRef<Set<string>>(new Set()); // Track IDs to prevent duplicates
-  const processingAnnouncement = useRef<boolean>(false); // Prevent concurrent processing
+  const processedAnnouncementIds = useRef<Set<string>>(new Set());
+  const processingAnnouncement = useRef<boolean>(false);
 
   // Enhanced function to display a toast notification with improved deduplication
   const showAnnouncementToast = useCallback((announcement: ProcessedAnnouncement) => {
-    // Get current time
     const now = Date.now();
 
-    // Check if we've already shown a toast for this announcement recently (within 30 seconds)
     if (toastNotificationCache.has(announcement.id)) {
       const lastShown = toastNotificationCache.get(announcement.id);
       if (now - lastShown! < 30000) { // 30 seconds
@@ -65,11 +63,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       }
     }
 
-    // Add to cache with current timestamp
     toastNotificationCache.set(announcement.id, now);
     console.log(`SHOWING TOAST for ${announcement.id}`);
 
-    // Show the toast with a unique ID
     toast.success(
       <div>
         <div className="font-medium">{announcement.company}</div>
@@ -79,7 +75,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
         </div>
       </div>,
       {
-        id: `toast-${announcement.id}-${now}`, // Ensure unique toast ID with timestamp
+        id: `toast-${announcement.id}-${now}`,
         duration: 5000,
         position: 'top-right',
         className: 'announcement-toast',
@@ -87,8 +83,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       }
     );
 
-    // Clean up old entries from cache periodically
-    const cutoff = now - 60000; // 1 minute ago
+    const cutoff = now - 60000;
     toastNotificationCache.forEach((timestamp, id) => {
       if (timestamp < cutoff) {
         toastNotificationCache.delete(id);
@@ -96,7 +91,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     });
   }, []);
 
-  // Enhanced function to process new announcements with better deduplication
+  // FIXED: Enhanced function to process new announcements and dispatch badge events
   const processNewAnnouncement = useCallback((data: any) => {
     if (processingAnnouncement.current) {
       console.log("Already processing an announcement, waiting...");
@@ -105,7 +100,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     }
 
     processingAnnouncement.current = true;
-    console.log("Socket context: Processing new announcement:", data);
+    console.log("Socket context: Processing new announcement for badge:", data);
 
     try {
       if (!data) {
@@ -140,17 +135,44 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
 
       try {
         const enhancedAnnouncement = enhanceAnnouncementData([processedAnnouncement])[0];
+        
+        // Show toast notification
         showAnnouncementToast(enhancedAnnouncement);
+        
+        // FIXED: Dispatch custom event for notification badge
+        console.log('Dispatching new-announcement-received event for badge');
+        const customEvent = new CustomEvent('new-announcement-received', {
+          detail: enhancedAnnouncement
+        });
+        window.dispatchEvent(customEvent);
+        
+        // Call parent callback if provided
+        if (onNewAnnouncement) {
+          onNewAnnouncement(enhancedAnnouncement);
+        }
+        
       } catch (enhanceError) {
         console.error("Error enhancing announcement:", enhanceError);
+        
+        // Still dispatch event and show toast even if enhancement fails
         showAnnouncementToast(processedAnnouncement);
+        
+        console.log('Dispatching new-announcement-received event for badge (fallback)');
+        const customEvent = new CustomEvent('new-announcement-received', {
+          detail: processedAnnouncement
+        });
+        window.dispatchEvent(customEvent);
+        
+        if (onNewAnnouncement) {
+          onNewAnnouncement(processedAnnouncement);
+        }
       }
     } catch (error) {
       console.error("Error processing announcement:", error);
     } finally {
       processingAnnouncement.current = false;
     }
-  }, [showAnnouncementToast]);
+  }, [showAnnouncementToast, onNewAnnouncement]);
 
   // Initialize socket connection
   useEffect(() => {
@@ -238,7 +260,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       console.error("Error setting up socket connection:", error);
       setConnectionStatus('error');
       setLastError(`Failed to initialize socket: ${error instanceof Error ? error.message : String(error)}`);
-      return () => { }; // Empty cleanup if setup failed
+      return () => { };
     }
   }, [processNewAnnouncement, showAnnouncementToast]);
 

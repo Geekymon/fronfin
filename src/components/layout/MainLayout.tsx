@@ -22,20 +22,50 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [showFilterModal, setShowFilterModal] = useState(false);
   
-  // Get the title based on the active page
+  // FIXED: Get the proper page title with icon
   const getPageTitle = () => {
     switch (activePage) {
       case 'watchlist':
-        return 'Watchlist';
+        return ' Watchlist';
       case 'company':
-        return selectedCompany || 'Company';
+        return ` ${selectedCompany || 'Company'}`;
       default:
-        return ''; // No title for home as it's shown in the header content
+        return ' Announcement Dashboard'; // FIXED: Added proper title with icon
     }
   };
   
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* FIXED: Header - Full Width with proper title display */}
+      <div className="fixed top-0 left-0 right-0 z-30 bg-white shadow-sm border-b border-gray-100">
+        <div className="flex items-center justify-between h-16 px-6">
+          {/* FIXED: Left side - MarketWire branding + Page Title */}
+          <div className="flex items-center space-x-4">
+            {/* MarketWire Logo */}
+            <button 
+              onClick={() => onNavigate('home')}
+              className="font-black text-xl rounded-2xl flex items-center justify-center font-medium"
+              title="MarketWire Home"
+            >
+              MarketWire
+            </button>
+            
+            {/* FIXED: Page Title with proper spacing and prominence */}
+            <div className="flex items-center">
+              <h1 className="text-xl font-semibold text-gray-900 ml-60">
+                {getPageTitle()}
+              </h1>
+            </div>
+          </div>
+          
+          {/* Right side - Header content passed as prop */}
+          <div className="flex items-center">
+            {headerRight}
+          </div>
+        </div>
+      </div>
+
+      {/* Sidebar */}
       <Sidebar 
         activePage={activePage}
         selectedCompany={selectedCompany}
@@ -45,18 +75,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         onFilterClick={() => setShowFilterModal(true)}
       />
       
+      {/* Main Content - Adjusted for fixed header and sidebar */}
       <div 
-        className={`flex flex-col transition-all duration-300 ${sidebarExpanded ? 'ml-64' : 'ml-16'} flex-1`}
+        className={`flex flex-col transition-all duration-300 ${sidebarExpanded ? 'ml-64' : 'ml-16'} flex-1 mt-16`}
       >
-        <div className="bg-white shadow-sm px-6 py-4 flex items-center justify-between sticky top-0 z-20">
-          <div className="text-xl font-semibold text-gray-900">
-            {getPageTitle()}
-          </div>
-          
-          {/* Header right content passed as prop */}
-          {headerRight}
-        </div>
-        
         {/* Main content */}
         {children}
       </div>

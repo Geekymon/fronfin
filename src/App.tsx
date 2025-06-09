@@ -1,4 +1,4 @@
-// App.tsx with fixed undefined functions and improved watchlist handling
+// App.tsx - Fixed auto-reload behavior and badge reset on page reload
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -15,6 +15,7 @@ import { SocketProvider } from './context/SocketContext';
 import { useAuth } from './context/AuthContext';
 import { toast, Toaster } from 'react-hot-toast';
 import NotificationIndicator from './components/common/NotificationIndicator';
+import NewAnnouncementBadge from './components/common/NewAnnouncementBadge';
 import { sortByNewestDate } from './utils/dateUtils';
 
 // Inner component with enhanced socket handling
@@ -22,25 +23,23 @@ const AppWithSocket = () => {
   const [activePage, setActivePage] = useState<'dashboard' | 'watchlist' | 'company'>('dashboard');
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [watchlistParams, setWatchlistParams] = useState<{ watchlistId?: string }>({});
-  const [newAnnouncements, setNewAnnouncements] = useState<ProcessedAnnouncement[]>([]);
+  const [reloadTrigger, setReloadTrigger] = useState(0); // For triggering reloads
   const { user } = useAuth();
   const isAuthenticated = !!user;
   const processedAnnouncementIds = useRef<Set<string>>(new Set());
 
+  // REMOVED: newAnnouncements state - we don't auto-merge new announcements anymore
+  // They are only tracked by the badge for manual reload
+
   // Navigation handlers
-  // Fixed: Create proper handleViewNewAnnouncements without undefined variables
   const handleViewNewAnnouncements = () => {
     // Scroll to top where new announcements are displayed
     window.scrollTo({
       top: 0,
       behavior: 'smooth'
     });
-
-    // Clear new announcements after viewing
-    setNewAnnouncements([]);
   };
 
-  // Fixed: Define the missing handleViewAnnouncements function
   const handleViewAnnouncements = useCallback(() => {
     setActivePage('dashboard');
   }, []);
@@ -53,7 +52,6 @@ const AppWithSocket = () => {
       setSelectedCompany(null);
     } else if (page === 'watchlist') {
       setActivePage('watchlist');
-      // Always update watchlist params, even if undefined
       setWatchlistParams(params || {});
       console.log("Set watchlist params to:", params);
     } else if (page === 'company' && selectedCompany) {
@@ -66,10 +64,10 @@ const AppWithSocket = () => {
     setActivePage('company');
   };
 
-  // Enhanced new announcement handler 
+  // FIXED: Remove auto-merge of new announcements - only let badge handle them
   const handleNewAnnouncement = useCallback((rawAnnouncement: any) => {
     try {
-      console.log('New announcement received in App:', rawAnnouncement);
+      console.log('New announcement received in App (for badge only):', rawAnnouncement);
 
       // Basic validation
       if (!rawAnnouncement) {
@@ -91,68 +89,35 @@ const AppWithSocket = () => {
       // Mark as processed
       processedAnnouncementIds.current.add(announcementId);
 
-      // Format basic announcement data
-      const baseAnnouncement: ProcessedAnnouncement = {
-        id: announcementId,
-        company: rawAnnouncement.companyname || rawAnnouncement.company || "Unknown Company",
-        ticker: rawAnnouncement.symbol || rawAnnouncement.Symbol || "",
-        category: rawAnnouncement.category || rawAnnouncement.Category || "Other",
-        date: rawAnnouncement.date || new Date().toISOString(),
-        summary: rawAnnouncement.ai_summary || rawAnnouncement.summary || "",
-        detailedContent: rawAnnouncement.ai_summary || rawAnnouncement.summary || "",
-        isin: rawAnnouncement.isin || rawAnnouncement.ISIN || "",
-        sentiment: "Neutral",
-        isNew: true, // Mark as new
-        receivedAt: Date.now() // Add timestamp for sorting
-      };
-
-      // Enhance the announcement data
-      let processedAnnouncement: ProcessedAnnouncement;
-      try {
-        processedAnnouncement = enhanceAnnouncementData([baseAnnouncement])[0];
-      } catch (enhanceError) {
-        console.error('Error enhancing announcement data:', enhanceError);
-        // Fallback to base announcement if enhancement fails
-        processedAnnouncement = baseAnnouncement;
-      }
-
-      // Update state with the new announcement
-      setNewAnnouncements(prev => {
-        // Check for duplicates again (by ID, which should be unique)
-        if (prev.some(a => a.id === processedAnnouncement.id)) {
-          return prev; // No change if duplicate
-        }
-        
-        // Add to the beginning and sort properly
-        const updated = [processedAnnouncement, ...prev];
-        return sortByNewestDate(updated);
-      });
+      // REMOVED: Auto-merge into announcements state
+      // The announcement will only be shown via the notification badge
+      // and will only be loaded into the main list when user clicks reload
+      
+      console.log('New announcement processed for badge only - no auto-merge');
       
     } catch (error) {
       console.error('Error processing new announcement:', error);
     }
   }, []);
 
-  // Cleanup old "new" announcements after a while
-  useEffect(() => {
-    if (newAnnouncements.length > 0) {
-      const timer = setTimeout(() => {
-        // Move announcements from "new" to regular after 5 minutes
-        const now = Date.now();
-        const fiveMinutesAgo = now - 5 * 60 * 1000;
+  // Function to handle reload from notification badge
+  const handleReloadAnnouncements = useCallback(() => {
+    console.log('Reloading announcements from notification badge');
+    
+    // Clear processed announcement IDs to allow fresh data
+    processedAnnouncementIds.current.clear();
+    
+    // Trigger a reload by incrementing the reload trigger
+    setReloadTrigger(prev => prev + 1);
+    
+    // Show a brief success message
+    toast.success('Announcements reloaded!', {
+      duration: 2000,
+      position: 'bottom-right'
+    });
+  }, []);
 
-        setNewAnnouncements(prev =>
-          prev.filter(announcement => {
-            // Keep only announcements that arrived in the last 5 minutes
-            const announcementTime = announcement.receivedAt || now;
-            return announcementTime > fiveMinutesAgo;
-          })
-        );
-      }, 60000); // Check every minute
-
-      return () => clearTimeout(timer);
-    }
-  }, [newAnnouncements]);
+  // REMOVED: Cleanup effect for newAnnouncements since we don't store them anymore
 
   // We only want to use socket connections when user is authenticated
   if (!isAuthenticated) {
@@ -188,14 +153,15 @@ const AppWithSocket = () => {
                     <Dashboard
                       onNavigate={handleNavigate}
                       onCompanySelect={handleCompanyClick}
-                      newAnnouncements={newAnnouncements}
+                      // REMOVED: newAnnouncements prop - no auto-merge
+                      reloadTrigger={reloadTrigger}
                     />
                   ) : activePage === 'watchlist' ? (
                     <WatchlistPage
                       onViewAnnouncements={handleViewAnnouncements}
                       onNavigate={handleNavigate}
                       watchlistParams={watchlistParams}
-                      newAnnouncements={newAnnouncements}
+                      // REMOVED: newAnnouncements prop
                     />
                   ) : (
                     selectedCompany && (
@@ -203,11 +169,7 @@ const AppWithSocket = () => {
                         company={selectedCompany}
                         onNavigate={handleNavigate}
                         onBack={() => setActivePage('dashboard')}
-                        newAnnouncements={newAnnouncements.filter(
-                          a => a.company === selectedCompany.name ||
-                            a.isin === selectedCompany.isin ||
-                            a.ticker === selectedCompany.symbol
-                        )} 
+                        // REMOVED: newAnnouncements prop
                       />
                     )
                   )}
@@ -217,9 +179,12 @@ const AppWithSocket = () => {
               {/* Fallback route */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-            <NotificationIndicator
-              onViewNewAnnouncements={handleViewNewAnnouncements}
-            />
+            
+            {/* REMOVED: Existing notification indicator - using only badge now */}
+            
+            {/* Simple notification badge for reloading */}
+            <NewAnnouncementBadge onReload={handleReloadAnnouncements} />
+            
           </WatchlistProvider>
         </FilterProvider>
       </Router>

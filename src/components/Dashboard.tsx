@@ -1,19 +1,16 @@
-// src/components/Dashboard.tsx - Complete implementation with real-time announcement support
+// src/components/Dashboard.tsx - Cleaned header and fixed auto-reload behavior
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Calendar, Filter, RefreshCw, AlertTriangle, Star, StarOff, Bell } from 'lucide-react';
 import { fetchAnnouncements, ProcessedAnnouncement, Company, searchCompanies, sortAnnouncementsByDate, formatDate } from '../api';
 import MainLayout from './layout/MainLayout';
-import MetricsPanel from './common/MetricsPanel';
 import DetailPanel from './announcements/DetailPanel';
 import FilterModal from './common/FilterModal';
 import Pagination from './common/Pagination';
 import { useFilters } from '../context/FilterContext';
 import AnnouncementRow from './announcements/AnnouncementRow';
 import { useSocket } from '../context/SocketContext';
-import SocketStatusIndicator from './common/SocketStatusIndicator';
 import { toast } from 'react-hot-toast';
-import NewAnnouncementIndicator from './common/NewAnnouncementIndicator';
 import { sortByNewestDate } from '../utils/dateUtils';
 
 // Define an interface for the API search results
@@ -34,15 +31,17 @@ interface CompanySearchResult {
 interface DashboardProps {
   onNavigate: (page: 'home' | 'watchlist' | 'company') => void;
   onCompanySelect: (company: Company) => void;
-  newAnnouncements?: ProcessedAnnouncement[]; // New prop to receive announcements from App
+  newAnnouncements?: ProcessedAnnouncement[];
+  reloadTrigger?: number;
 }
 
-const ITEMS_PER_PAGE = 15; // Number of announcements per page
+const ITEMS_PER_PAGE = 15;
 
 const Dashboard: React.FC<DashboardProps> = ({
   onNavigate,
   onCompanySelect,
-  newAnnouncements = []
+  newAnnouncements = [],
+  reloadTrigger = 0
 }) => {
   // State management
   const [announcements, setAnnouncements] = useState<ProcessedAnnouncement[]>([]);
@@ -54,10 +53,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewedAnnouncements, setViewedAnnouncements] = useState<string[]>([]);
-  const [localNewAnnouncements, setLocalNewAnnouncements] = useState<ProcessedAnnouncement[]>([]);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'company' | 'category'>('all');
-  const [showNewIndicator, setShowNewIndicator] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
 
   // Search-specific state
@@ -72,6 +69,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const processedAnnouncementIds = useRef<Set<string>>(new Set());
+  const previousReloadTrigger = useRef(reloadTrigger);
 
   // Access socket context
   const socketContext = useSocket();
@@ -87,171 +85,34 @@ const Dashboard: React.FC<DashboardProps> = ({
     setSelectedIndustries
   } = useFilters();
 
-  // Function to merge new announcements with existing ones
-  // Find this function in Dashboard.tsx
-const mergeNewAnnouncements = useCallback((
-  existingAnnouncements: ProcessedAnnouncement[],
-  incomingAnnouncements: ProcessedAnnouncement[]
-) => {
-  if (!incomingAnnouncements || incomingAnnouncements.length === 0) {
-    return existingAnnouncements;
-  }
-
-  // Create a Map of existing announcements by ID for quick lookup
-  const existingMap = new Map(existingAnnouncements.map(a => [a.id, a]));
-  
-  // ALSO create a content-based map for better deduplication
-  const contentMap = new Map();
-  existingAnnouncements.forEach(a => {
-    if (a.company && a.summary) {
-      // Create a content key based on company and summary start
-      const contentKey = `${a.company}-${a.summary.substring(0, 50)}`;
-      contentMap.set(contentKey, a);
-    }
-  });
-
-  // Process each incoming announcement
-  incomingAnnouncements.forEach(incoming => {
-    // Skip if already in the ID map
-    if (existingMap.has(incoming.id)) {
-      return;
-    }
-    
-    // Check for content-based duplicates
-    if (incoming.company && incoming.summary) {
-      const contentKey = `${incoming.company}-${incoming.summary.substring(0, 50)}`;
-      if (contentMap.has(contentKey)) {
-        console.log(`Skipping content duplicate: ${incoming.company}`);
-        return;
-      }
-      contentMap.set(contentKey, incoming);
-    }
-    
-    // New announcement - add it to the map
-    existingMap.set(incoming.id, {
-      ...incoming,
-      isNew: true, // Mark as new
-      receivedAt: Date.now() // Add timestamp
-    });
-    console.log(`Added new announcement: ${incoming.id} - ${incoming.company}`);
-
-    // Add to processed IDs set
-    processedAnnouncementIds.current.add(incoming.id);
-  });
-
-  // Convert map back to array and sort by date
-  return sortAnnouncementsByDate(Array.from(existingMap.values()));
-}, []);
   // Handle marking announcements as read
   const markAnnouncementAsRead = useCallback((id: string) => {
-    // Update the viewed announcements list
     if (!viewedAnnouncements.includes(id)) {
       const updatedViewed = [...viewedAnnouncements, id];
       setViewedAnnouncements(updatedViewed);
       localStorage.setItem('viewedAnnouncements', JSON.stringify(updatedViewed));
     }
-
-    // Update the newAnnouncements state by removing this announcement
-    setLocalNewAnnouncements(prev => prev.filter(a => a.id !== id));
-
-    // Update the main announcements list to remove the isNew flag
-    // BUT DO NOT RE-SORT after marking as read
-    setAnnouncements(prev => prev.map(announcement =>
-      announcement.id === id
-        ? { ...announcement, isNew: false }
-        : announcement
-    ));
   }, [viewedAnnouncements]);
 
   // Handle announcement click
   const handleAnnouncementClick = (announcement: ProcessedAnnouncement) => {
-    // Mark as viewed when clicked
     markAnnouncementAsRead(announcement.id);
-
-    // Show the detail panel
     setSelectedDetail(announcement);
   };
 
-  // Handle new announcements from parent App component
+  // FIXED: Handle reload trigger from notification badge (don't auto-merge new announcements)
   useEffect(() => {
-    if (newAnnouncements && newAnnouncements.length > 0) {
-      console.log(`Dashboard received ${newAnnouncements.length} new announcements from App`);
-
-      // Merge with existing announcements
-      setAnnouncements(prev => mergeNewAnnouncements(prev, newAnnouncements));
-
-      // Update local new announcements count
-      const newIds = new Set(newAnnouncements.map(a => a.id));
-      setLocalNewAnnouncements(prev => {
-        // Remove announcements that are no longer marked as new
-        const filtered = prev.filter(a => a.isNew);
-
-        // Add new announcements that we haven't processed yet
-        const newOnes = newAnnouncements.filter(a =>
-          !prev.some(p => p.id === a.id) && a.isNew
-        );
-
-        return [...filtered, ...newOnes];
-      });
-
-      // Show the new indicator
-      setShowNewIndicator(true);
-
-      // Reset to first page to show new announcements
-      setCurrentPage(1);
+    if (reloadTrigger !== previousReloadTrigger.current && reloadTrigger > 0) {
+      console.log('Reload trigger detected, reloading announcements');
+      previousReloadTrigger.current = reloadTrigger;
+      
+      // Trigger a fresh load without auto-merging
+      loadAnnouncements();
     }
-  }, [newAnnouncements, mergeNewAnnouncements]);
+  }, [reloadTrigger]);
 
-  // // Listen directly for new announcements from the socket via custom event
-  // useEffect(() => {
-  //   const handleNewAnnouncementEvent = (event: CustomEvent) => {
-  //     if (event.detail) {
-  //       const newAnnouncement = event.detail as ProcessedAnnouncement;
-  //       console.log("Dashboard received new announcement from custom event:", newAnnouncement);
-
-  //       // Check if we've already processed this announcement
-  //       if (processedAnnouncementIds.current.has(newAnnouncement.id)) {
-  //         console.log(`Already processed announcement ${newAnnouncement.id}, skipping`);
-  //         return;
-  //       }
-
-  //       // Add to processed IDs
-  //       processedAnnouncementIds.current.add(newAnnouncement.id);
-
-  //       // Update the announcements list
-  //       setAnnouncements(prev => {
-  //         // Skip if already in the list
-  //         if (prev.some(a => a.id === newAnnouncement.id)) {
-  //           return prev;
-  //         }
-
-  //         // Add to the beginning and re-sort
-  //         const updated = [newAnnouncement, ...prev];
-  //         return sortAnnouncementsByDate(updated);
-  //       });
-
-  //       // Also update the newAnnouncements state
-  //       setLocalNewAnnouncements(prev => {
-  //         // Skip if already in the list
-  //         if (prev.some(a => a.id === newAnnouncement.id)) {
-  //           return prev;
-  //         }
-
-  //         return [newAnnouncement, ...prev];
-  //       });
-
-  //       // Show the indicator
-  //       setShowNewIndicator(true);
-  //     }
-  //   };
-
-  //   // Listen for the custom event
-  //   window.addEventListener('new-announcement-received', handleNewAnnouncementEvent as EventListener);
-
-  //   return () => {
-  //     window.removeEventListener('new-announcement-received', handleNewAnnouncementEvent as EventListener);
-  //   };
-  // }, []);
+  // REMOVED: Auto-merge of new announcements - now only badge shows them
+  // The newAnnouncements prop is ignored for auto-display to prevent auto-refresh
 
   // Load viewed announcements from localStorage on mount
   useEffect(() => {
@@ -284,15 +145,12 @@ const mergeNewAnnouncements = useCallback((
     setIsRetrying(true);
     setIsLoading(true);
 
-    // Retry socket connection if there's an error
     if (socketContext && socketContext.connectionStatus === 'error') {
       socketContext.reconnect();
     }
 
-    // Load announcements again
     loadAnnouncements();
 
-    // Set a timeout to reset the retrying state
     if (retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current);
     }
@@ -307,8 +165,6 @@ const mergeNewAnnouncements = useCallback((
     setIsLoading(true);
     setError(null);
 
-    // Set a timeout to show loading state for at least 500ms
-    // This prevents flickering for fast responses
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current);
     }
@@ -319,7 +175,6 @@ const mergeNewAnnouncements = useCallback((
 
     try {
       console.log("Fetching announcements from API...");
-      // Check if dates are valid before fetching
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       const startDate = dateRegex.test(filters.dateRange.start) ? filters.dateRange.start : '';
       const endDate = dateRegex.test(filters.dateRange.end) ? filters.dateRange.end : '';
@@ -327,46 +182,32 @@ const mergeNewAnnouncements = useCallback((
       const industry = filters.selectedIndustries.length === 1 ? filters.selectedIndustries[0] : '';
       const data = await fetchAnnouncements(startDate, endDate, industry);
 
-      // Wait for minimum loading time to complete
       await minLoadingTime;
 
       console.log(`Received ${data.length} announcements from API`);
 
-      // Add all IDs to processed set
       data.forEach(announcement => {
         processedAnnouncementIds.current.add(announcement.id);
       });
 
-      // Merge with any new announcements we've received via socket
-      if (localNewAnnouncements && localNewAnnouncements.length > 0) {
-        const mergedData = mergeNewAnnouncements(data, localNewAnnouncements);
-        setAnnouncements(mergedData);
-      } else {
-        setAnnouncements(data);
-      }
-
-      // Mark initial load as complete
+      setAnnouncements(data);
       initialLoadComplete.current = true;
-
-      // Reset to first page when data changes
       setCurrentPage(1);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to load announcements. Please try again.');
 
-      // If fetch fails but we have test data in our announcements state already, keep it
       if (announcements.length === 0) {
-        // Generate test data since we have nothing to show
         console.log("Generating test data as fallback");
         const testData = generateTestData(3);
         setAnnouncements(testData);
       }
     } finally {
-      await minLoadingTime; // Always wait for min loading time
+      await minLoadingTime;
       setIsLoading(false);
       setIsRetrying(false);
     }
-  }, [filters.dateRange, filters.selectedIndustries, mergeNewAnnouncements, localNewAnnouncements]);
+  }, [filters.dateRange, filters.selectedIndustries]);
 
   // Generate test data as fallback
   const generateTestData = (count: number): ProcessedAnnouncement[] => {
@@ -379,12 +220,11 @@ const mergeNewAnnouncements = useCallback((
       const sentimentIndex = i % sentiments.length;
       const category = categories[categoryIndex];
 
-      // Create test data with formatting
       const headline = `Test Announcement ${i + 1} for ${category}`;
       const summary = `**Category:** ${category}\n**Headline:** ${headline}\n\nThis is a test announcement ${i + 1} for debugging purposes.`;
 
       const now = new Date();
-      const date = new Date(now.getTime() - (i * 3600000)); // Each test item 1 hour apart
+      const date = new Date(now.getTime() - (i * 3600000));
 
       testData.push({
         id: `test-${i}-${Date.now()}`,
@@ -407,12 +247,10 @@ const mergeNewAnnouncements = useCallback((
   useEffect(() => {
     let result = [...announcements];
 
-    // Company filter
     if (filters.selectedCompany) {
       result = result.filter(item => item.company === filters.selectedCompany);
     }
 
-    // Search term filter - now including ISIN
     if (filters.searchTerm) {
       result = result.filter(item =>
         item.company.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
@@ -429,10 +267,9 @@ const mergeNewAnnouncements = useCallback((
     if (filters.selectedSentiments.length > 0) {
       result = result.filter(item => item.sentiment && filters.selectedSentiments.includes(item.sentiment));
     }
-    result = sortByNewestDate(result);
 
+    result = sortByNewestDate(result);
     setFilteredAnnouncements(result);
-    // Reset to first page when filters change
     setCurrentPage(1);
   }, [
     announcements,
@@ -447,7 +284,6 @@ const mergeNewAnnouncements = useCallback((
     loadAnnouncements();
 
     return () => {
-      // Clear any timers on unmount
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
       }
@@ -462,15 +298,12 @@ const mergeNewAnnouncements = useCallback((
     if (socketContext && socketContext.isConnected) {
       console.log('Joining socket rooms based on filters');
 
-      // Join the 'all' room to receive all announcements
       socketContext.joinRoom('all');
 
-      // Join rooms for filtered companies
       if (filters.selectedCompany) {
         socketContext.joinRoom(`company:${filters.selectedCompany}`);
       }
 
-      // Join specific industry or category rooms if we want to track these
       if (filters.selectedIndustries.length === 1) {
         socketContext.joinRoom(`industry:${filters.selectedIndustries[0]}`);
       }
@@ -481,7 +314,6 @@ const mergeNewAnnouncements = useCallback((
         });
       }
 
-      // Join symbol/ticker-specific rooms from announcements
       const tickers = announcements
         .map(a => a.ticker)
         .filter(Boolean)
@@ -491,7 +323,6 @@ const mergeNewAnnouncements = useCallback((
         if (ticker) socketContext.joinRoom(ticker);
       });
 
-      // Join ISIN-specific rooms from announcements
       const isins = announcements
         .map(a => a.isin)
         .filter(Boolean)
@@ -501,7 +332,6 @@ const mergeNewAnnouncements = useCallback((
         if (isin) socketContext.joinRoom(isin);
       });
 
-      // Clean up function to leave rooms when component unmounts or filters change
       return () => {
         socketContext.leaveRoom('all');
 
@@ -534,7 +364,7 @@ const mergeNewAnnouncements = useCallback((
     filters.selectedCompany,
     filters.selectedIndustries,
     filters.selectedCategories,
-    announcements // Add this dependency to update rooms when announcements change
+    announcements
   ]);
 
   // Handle search input changes with debouncing
@@ -560,7 +390,7 @@ const mergeNewAnnouncements = useCallback((
       } else {
         setShowSearchResults(false);
       }
-    }, 300); // Debounce for 300ms
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [filters.searchTerm]);
@@ -594,7 +424,6 @@ const mergeNewAnnouncements = useCallback((
 
   // Handle search result selection
   const handleSearchSelect = (companyData: CompanySearchResult) => {
-    // Create a Company object from the API response
     const company: Company = {
       id: companyData.ISIN || companyData.isin || `company-${Date.now()}`,
       name: companyData.NewName || companyData.newname || companyData.OldName || companyData.oldname || '',
@@ -627,7 +456,6 @@ const mergeNewAnnouncements = useCallback((
   // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Scroll to top of the list
     if (announcementListRef.current) {
       announcementListRef.current.scrollTop = 0;
     } else {
@@ -651,18 +479,15 @@ const mergeNewAnnouncements = useCallback((
 
   // Improved date change handler with validation
   const handleDateChange = (type: 'start' | 'end', value: string) => {
-    // Log the date input for debugging
     console.log(`Date input (${type}):`, value);
 
-    // Validate that the input is a proper date in YYYY-MM-DD format
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
     if (!dateRegex.test(value) && value !== '') {
       console.warn(`Invalid date format for ${type}: ${value}`);
-      return; // Don't update if format is invalid but not empty
+      return;
     }
 
-    // Set the date range in the filters
     setDateRange(
       type === 'start' ? value : filters.dateRange.start,
       type === 'end' ? value : filters.dateRange.end
@@ -681,9 +506,8 @@ const mergeNewAnnouncements = useCallback((
 
   // Handle company name click to navigate to company page
   const handleCompanyClick = (company: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering the row click event
+    e.stopPropagation();
 
-    // Find a matching announcement to get company details
     const companyAnnouncement = announcements.find(a => a.company === company);
     if (companyAnnouncement) {
       const companyObj: Company = {
@@ -691,7 +515,7 @@ const mergeNewAnnouncements = useCallback((
         name: company,
         symbol: companyAnnouncement.ticker,
         industry: companyAnnouncement.industry,
-        isin: companyAnnouncement.isin || '' // Make sure to include ISIN
+        isin: companyAnnouncement.isin || ''
       };
       onCompanySelect(companyObj);
     }
@@ -701,24 +525,6 @@ const mergeNewAnnouncements = useCallback((
   const openFilterModal = (type: 'all' | 'company' | 'category') => {
     setFilterType(type);
     setShowFilterModal(true);
-  };
-
-  // Handle scroll to new announcements
-  const handleScrollToNew = () => {
-    setCurrentPage(1); // Reset to first page
-    setShowNewIndicator(false); // Hide indicator
-
-    // After state update, scroll to top where new announcements are
-    setTimeout(() => {
-      if (announcementListRef.current) {
-        announcementListRef.current.scrollTop = 0;
-      } else {
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        });
-      }
-    }, 100);
   };
 
   // Render socket connection error message if needed
@@ -748,9 +554,9 @@ const mergeNewAnnouncements = useCallback((
   // Display current page announcements
   const displayedAnnouncements = getCurrentPageItems();
 
-  // Custom header content with date pickers
+  // CLEANED: Simplified header content - removed unwanted elements
   const headerContent = (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center space-x-4">
       {/* Enhanced Search with dropdown */}
       <div className="relative w-72" ref={searchRef}>
         <div className="flex items-center">
@@ -774,7 +580,7 @@ const mergeNewAnnouncements = useCallback((
           )}
         </div>
 
-        {/* Search Results Dropdown - Updated to show ISIN */}
+        {/* Search Results Dropdown */}
         {showSearchResults && searchResults.length > 0 && (
           <div className="absolute z-40 mt-2 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
             <ul className="max-h-80 overflow-y-auto divide-y divide-gray-100">
@@ -811,8 +617,8 @@ const mergeNewAnnouncements = useCallback((
         )}
       </div>
 
+      {/* Date Range Filters */}
       <div className="flex items-center space-x-2">
-        {/* Updated date inputs with validation attributes */}
         <input
           type="date"
           value={filters.dateRange.start}
@@ -834,44 +640,6 @@ const mergeNewAnnouncements = useCallback((
     </div>
   );
 
-  // Render the dashboard header
-  const renderDashboardHeader = () => (
-    <div className="py-4 px-6 bg-white border-b border-gray-100 flex justify-between items-center">
-      <div className="flex items-center">
-        <h1 className="text-xl font-semibold text-gray-900">Announcements Dashboard</h1>
-        <div className="ml-3 flex items-center">
-          <div className="w-2 h-2 bg-green-500 rounded-full mr-1.5"></div>
-          <span className="text-xs font-medium text-gray-700">AI-Powered</span>
-        </div>
-        <SocketStatusIndicator className="ml-3" />
-
-        {/* Retry button visible when error or loading */}
-        {(error || (socketContext && socketContext.connectionStatus === 'error')) && (
-          <button
-            onClick={handleRetry}
-            disabled={isRetrying || isLoading}
-            className="ml-4 flex items-center px-2 py-1 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
-          >
-            <RefreshCw size={12} className={`mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
-            {isRetrying ? 'Retrying...' : 'Retry'}
-          </button>
-        )}
-      </div>
-
-      <div className="flex items-center">
-        <div className="mr-6 text-sm font-medium">
-          Filtered Announcements: {filteredAnnouncements.length}
-        </div>
-        {localNewAnnouncements.length > 0 && (
-          <div className="flex items-center text-sm font-medium text-blue-600">
-            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2 badge-pulse"></div>
-            {localNewAnnouncements.length} new update{localNewAnnouncements.length !== 1 ? 's' : ''}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   // Main render
   return (
     <MainLayout
@@ -883,16 +651,10 @@ const mergeNewAnnouncements = useCallback((
     >
       {/* Main content container with scrolling */}
       <div className="flex flex-col h-full overflow-auto">
-        {/* Custom dashboard header with retry button */}
-        {renderDashboardHeader()}
-
         {/* Connection error message if needed */}
         {renderConnectionError()}
 
-        {/* Metrics section - will scroll away */}
-        <div className="bg-white border-b border-gray-100">
-          <MetricsPanel announcements={filteredAnnouncements} />
-        </div>
+        {/* REMOVED: Metrics Panel as requested */}
 
         {/* Company filter bar (optional) - will scroll away */}
         {filters.selectedCompany && (
@@ -950,9 +712,38 @@ const mergeNewAnnouncements = useCallback((
           </div>
         )}
 
+        {/* Sentiment filter bar (optional) - will scroll away */}
+        {filters.selectedSentiments.length > 0 && (
+          <div className="bg-white px-6 py-3 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center flex-wrap gap-2">
+              <span className="text-sm text-gray-500">Filtering by sentiments:</span>
+              {filters.selectedSentiments.map(sentiment => (
+                <span key={sentiment} className="text-sm font-medium text-black bg-gray-100 px-3 py-1 rounded-lg flex items-center">
+                  {sentiment}
+                  <button
+                    onClick={() => setSelectedSentiments(filters.selectedSentiments.filter(s => s !== sentiment))}
+                    className="ml-2 text-gray-400 hover:text-gray-700 focus:outline-none"
+                  >
+                    <span className="sr-only">Remove</span>
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </span>
+              ))}
+            </div>
+            <button
+              onClick={() => setSelectedSentiments([])}
+              className="text-sm text-gray-500 hover:text-gray-900 focus:outline-none"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
+
         {/* Table with fixed header and scrollable content */}
         <div className="flex-1 relative" ref={announcementListRef}>
-          {/* Table header - updated to match AnnouncementRow column layout */}
+          {/* Table header */}
           <div className="sticky top-0 z-10 grid grid-cols-12 px-6 py-3 text-xs font-medium text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
             <div className="col-span-3 flex items-center">
               <span>Company</span>
@@ -1026,7 +817,7 @@ const mergeNewAnnouncements = useCallback((
                   onSave={toggleSavedFiling}
                   onClick={handleAnnouncementClick}
                   onCompanyClick={handleCompanyClick}
-                  isNew={localNewAnnouncements.some(a => a.id === announcement.id)}
+                  isNew={false} // FIXED: Don't show "new" badges since we're not auto-merging
                   onMarkAsRead={markAnnouncementAsRead}
                 />
               ))
@@ -1034,55 +825,54 @@ const mergeNewAnnouncements = useCallback((
           </div>
 
           {/* Pagination controls */}
-            {!isLoading && totalItems > 0 && (
+          {!isLoading && totalItems > 0 && (
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={handlePageChange}
             />
-            )}
-          </div>
+          )}
+        </div>
 
-          {/* Detail Panel - Now 50% width */}
-          {selectedDetail && (
-            <div className="fixed top-0 right-0 w-2/3 h-full bg-white shadow-xl z-30 border-l border-gray-200 overflow-auto">
+        {/* Detail Panel */}
+        {selectedDetail && (
+          <div className="fixed top-16 right-0 w-2/3 h-[calc(100%-4rem)] bg-white shadow-xl z-30 border-l border-gray-200 overflow-auto">
             <DetailPanel
               announcement={selectedDetail}
               isSaved={savedFilings.includes(selectedDetail.id)}
               onClose={() => setSelectedDetail(null)}
               onSave={toggleSavedFiling}
               onViewAllAnnouncements={(company) => {
-              // Find a matching announcement to get company details
-              const companyAnnouncement = announcements.find(a => a.company === company);
-              if (companyAnnouncement) {
-                const companyObj: Company = {
-                id: companyAnnouncement.companyId,
-                name: company,
-                symbol: companyAnnouncement.ticker,
-                industry: companyAnnouncement.industry,
-                isin: companyAnnouncement.isin || ''
-                };
-                onCompanySelect(companyObj);
-              }
+                const companyAnnouncement = announcements.find(a => a.company === company);
+                if (companyAnnouncement) {
+                  const companyObj: Company = {
+                    id: companyAnnouncement.companyId,
+                    name: company,
+                    symbol: companyAnnouncement.ticker,
+                    industry: companyAnnouncement.industry,
+                    isin: companyAnnouncement.isin || ''
+                  };
+                  onCompanySelect(companyObj);
+                }
               }}
             />
-            </div>
-          )}
           </div>
+        )}
+      </div>
 
-          {/* Backdrop for when detail panel is open - adjusted for 50% panel */}
-          {selectedDetail && (
-          <div
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-20"
-            onClick={() => setSelectedDetail(null)}
-          ></div>
-          )}
+      {/* Backdrop for when detail panel is open */}
+      {selectedDetail && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-20"
+          onClick={() => setSelectedDetail(null)}
+        ></div>
+      )}
 
-          {/* Filter Modal */}
-          {showFilterModal && (
-          <FilterModal
-            onClose={() => setShowFilterModal(false)}
-            onApplyFilters={(appliedFilters) => {
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <FilterModal
+          onClose={() => setShowFilterModal(false)}
+          onApplyFilters={(appliedFilters) => {
             if (appliedFilters.categories) {
               setSelectedCategories(appliedFilters.categories);
             }
@@ -1101,23 +891,6 @@ const mergeNewAnnouncements = useCallback((
           }}
           focusTab={filterType === 'category' ? 'categories' : filterType === 'company' ? 'industries' : undefined}
         />
-      )}
-
-      {/* New announcements floating indicator */}
-      {showNewIndicator && localNewAnnouncements.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-50 scale-in-animation">
-          <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center transition-colors"
-            onClick={handleScrollToNew}
-            aria-label={`${localNewAnnouncements.length} new announcements, click to view`}
-          >
-            <span className="badge-pulse mr-2 flex items-center justify-center">
-              <Bell size={16} />
-            </span>
-            <span className="font-medium mr-1">{localNewAnnouncements.length} new announcement{localNewAnnouncements.length !== 1 ? 's' : ''}</span>
-            <span className="ml-1">↑</span>
-          </button>
-        </div>
       )}
     </MainLayout>
   );

@@ -525,3 +525,245 @@
 .text-transition {
   transition: color 0.4s ease-out, font-weight 0.4s ease-out;
 }
+/* Add these animation styles to your existing globals.css file or create a new one */
+
+/* Badge pulse animation */
+@keyframes badge-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+.badge-pulse {
+  animation: badge-pulse 1.5s infinite ease-in-out;
+}
+
+/* Slow bounce animation for notification badge */
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2s infinite ease-in-out;
+}
+
+/* Scale in animation for appearing elements */
+@keyframes scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.scale-in-animation {
+  animation: scale-in 0.3s ease-out forwards;
+}
+
+/* Pulse slow animation for new announcements */
+@keyframes pulse-slow {
+  0%, 100% {
+    background-color: rgba(239, 246, 255, 0.6);
+  }
+  50% {
+    background-color: rgba(219, 234, 254, 1);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Flash animation for notifications */
+@keyframes flash {
+  0% {
+    background-color: rgba(219, 234, 254, 0.9);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.flash-animation {
+  animation: flash 1.5s ease-out;
+}
+
+/* Smooth transition for all row changes */
+.announcement-row-transition {
+  transition: background-color 0.5s ease-out, color 0.3s ease-out, transform 0.3s ease-out;
+}
+
+/* Special animation for newly arrived announcements */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.announcement-row-new-arrival {
+  animation: slideDown 0.5s ease-out forwards;
+}
+
+/* Fade in animation for modals and panels */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out forwards;
+}
+
+/* Glow effect for notification elements */
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.6);
+  }
+}
+
+.glow-animation {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Notification badge specific styles */
+.notification-badge {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  z-index: 1000;
+  transition: all 0.3s ease;
+  border: none;
+  outline: none;
+}
+
+.notification-badge:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  transform: translateY(-2px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+}
+
+.notification-badge:active {
+  transform: translateY(0);
+}
+
+/* Ensure the badge appears above other elements */
+.notification-badge {
+  z-index: 9999;
+}
+
+/* Loading spinner enhancement */
+@keyframes enhanced-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.enhanced-spinner {
+  animation: enhanced-spin 1s linear infinite;
+}
+
+/* Tailwind utility extensions */
+.shadow-float {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Typography improvements for notifications */
+.notification-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+.notification-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+
+/* Responsive notification badge */
+@media (max-width: 640px) {
+  .notification-badge {
+    bottom: 0.5rem;
+    right: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Toast notification styles */
+.announcement-toast {
+  border-left: 4px solid #3b82f6;
+}
+
+/* Focus styles for accessibility */
+.notification-badge:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .notification-badge {
+    border: 2px solid white;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .badge-pulse,
+  .animate-bounce-slow,
+  .scale-in-animation,
+  .animate-pulse-slow,
+  .glow-animation {
+    animation: none;
+  }
+  
+  .notification-badge {
+    transition: none;
+  }
+}
+
+/* Dark mode support (if your app has dark mode) */
+@media (prefers-color-scheme: dark) {
+  .notification-badge {
+    background: linear-gradient(135deg, #1e40af, #1e3a8a);
+  }
+  
+  .notification-badge:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  }
+}
