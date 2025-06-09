@@ -4,12 +4,11 @@ import {
   BarChart2, FileText, Info, Users, Tag, Briefcase
 } from 'lucide-react';
 import MainLayout from '../layout/MainLayout';
-import { fetchAnnouncements, ProcessedAnnouncement, Company } from '../../api';
+import { fetchAnnouncements, ProcessedAnnouncement, Company, fetchStockPriceData, StockPriceData } from '../../api';
 import AnnouncementList from '../announcements/AnnouncementList';
 import DetailPanel from '../announcements/DetailPanel';
 import { useWatchlist } from '../../context/WatchlistContext';
 import { useFilters } from '../../context/FilterContext';
-import angelOneService from '../../services/angelOneService';
 import StockPriceChart from './StockPriceChart';
 import CreateWatchlistModal from '../watchlist/CreateWatchlistModal.tsx';
 
@@ -21,6 +20,82 @@ interface CompanyPageProps {
 
 type TabType = 'overview' | 'financials' | 'announcements' | 'about';
 
+// FIXED: Compact announcement card component for company page (clickable preview, no company name)
+const CompanyAnnouncementRow: React.FC<{
+  announcement: ProcessedAnnouncement;
+  isSaved: boolean;
+  onSave: (id: string) => void;
+  onClick: (announcement: ProcessedAnnouncement) => void;
+}> = ({ announcement, isSaved, onSave, onClick }) => {
+  // Extract clean preview text without company name and markdown formatting
+  const getPreviewText = (summary: string, companyName: string): string => {
+    // Remove company name from the beginning
+    let cleaned = summary.replace(new RegExp(`^${companyName}:?\\s*`, 'i'), '');
+    
+    // Remove markdown formatting for preview
+    cleaned = cleaned
+      .replace(/\*\*Category:\*\*.*?(?=\*\*|$)/is, '') // Remove category line
+      .replace(/\*\*Headline:\*\*\s*/i, '') // Remove headline prefix
+      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
+      .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
+      .replace(/`(.*?)`/g, '$1') // Remove code formatting
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove link formatting, keep text
+      .replace(/\n+/g, ' ') // Replace newlines with spaces
+      .trim();
+    
+    // Return first 120 characters for preview
+    return cleaned.length > 120 ? cleaned.substring(0, 120) + '...' : cleaned;
+  };
+
+  const previewText = getPreviewText(announcement.summary, announcement.company);
+
+  return (
+    <div 
+      className="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group"
+      onClick={() => onClick(announcement)}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          {/* Category and Date */}
+          <div className="flex items-center space-x-2 mb-2">
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+              announcement.sentiment === 'Positive' ? 'bg-emerald-100 text-emerald-800' :
+              announcement.sentiment === 'Negative' ? 'bg-rose-100 text-rose-800' :
+              'bg-amber-100 text-amber-800'
+            }`}>
+              {announcement.category}
+            </span>
+            <span className="text-xs text-gray-500">{announcement.displayDate}</span>
+          </div>
+          
+          {/* Preview Text - FIXED: No company name, compact preview only */}
+          <div className="text-sm text-gray-700 leading-relaxed">
+            <p className="overflow-hidden" 
+               style={{
+                 display: '-webkit-box',
+                 WebkitLineClamp: 2,
+                 WebkitBoxOrient: 'vertical' as any
+               }}>
+              {previewText}
+            </p>
+          </div>
+        </div>
+        
+        {/* Save Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onSave(announcement.id);
+          }}
+          className="ml-4 p-2 rounded-lg hover:bg-gray-100 transition-colors opacity-60 group-hover:opacity-100"
+        >
+          <Star size={16} className={`${isSaved ? 'fill-current text-amber-500' : 'text-gray-400'}`} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }) => {
   // State management
   const [announcements, setAnnouncements] = useState<ProcessedAnnouncement[]>([]);
@@ -29,8 +104,9 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
   const [error, setError] = useState<string | null>(null);
   const [savedFilings, setSavedFilings] = useState<string[]>([]);
   const [showSavedFilings, setShowSavedFilings] = useState(false);
-  const [stockInfo, setStockInfo] = useState<any | null>(null);
-  const [companyProfile, setCompanyProfile] = useState<any | null>(null);
+  const [stockPriceData, setStockPriceData] = useState<StockPriceData[]>([]);
+  const [stockDataLoading, setStockDataLoading] = useState(false);
+  const [stockDataError, setStockDataError] = useState<string | null>(null);
   const [watchlistDropdownOpen, setWatchlistDropdownOpen] = useState(false);
   const [showCreateWatchlistModal, setShowCreateWatchlistModal] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -81,26 +157,31 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
     loadAnnouncements();
   }, [company, filters.dateRange]);
   
-  // Fetch stock information
+  // Fetch stock price data using the new API
   useEffect(() => {
-    const loadStockInfo = async () => {
+    const loadStockData = async () => {
+      if (!company.isin) {
+        console.log('No ISIN available for stock data');
+        return;
+      }
+
+      setStockDataLoading(true);
+      setStockDataError(null);
+      
       try {
-        const quote = await angelOneService.getQuote(company.symbol);
-        if (quote) {
-          setStockInfo(quote);
-        }
-        
-        const profile = await angelOneService.getCompanyProfile(company.symbol);
-        if (profile) {
-          setCompanyProfile(profile);
-        }
+        console.log(`Fetching stock data for ISIN: ${company.isin}`);
+        const data = await fetchStockPriceData(company.isin);
+        setStockPriceData(data);
       } catch (error) {
-        console.error('Error fetching stock information:', error);
+        console.error('Error fetching stock data:', error);
+        setStockDataError('Failed to load stock price data');
+      } finally {
+        setStockDataLoading(false);
       }
     };
     
-    loadStockInfo();
-  }, [company]);
+    loadStockData();
+  }, [company.isin]);
   
   // Toggle saved filing function
   const toggleSavedFiling = (id: string) => {
@@ -144,13 +225,6 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
     addToWatchlist(company, newWatchlist.id);
     setShowCreateWatchlistModal(false);
     setWatchlistDropdownOpen(false);
-  };
-  
-  // Calculate styling based on percentage change
-  const getChangeColor = (change: number) => {
-    if (change > 0) return 'text-emerald-600';
-    if (change < 0) return 'text-rose-600';
-    return 'text-gray-600';
   };
 
   // Tab definitions
@@ -247,6 +321,7 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
               <ArrowLeft size={18} />
             </button>
             <div>
+              {/* FIXED: Company name shown in page body, not header */}
               <h1 className="text-2xl font-semibold text-gray-900">{company.name}</h1>
               <div className="flex items-center mt-1">
                 <span className="px-2.5 py-0.5 text-sm font-medium rounded-full bg-black text-white">{company.symbol}</span>
@@ -258,14 +333,13 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
               </div>
             </div>
             
-            {stockInfo && (
+            {/* Display current price if available from stock data */}
+            {stockPriceData.length > 0 && (
               <div className="ml-auto flex items-end">
                 <div className="text-right">
-                  <div className="text-3xl font-bold">₹{stockInfo.ltp.toFixed(2)}</div>
-                  <div className={`flex items-center justify-end mt-1 ${getChangeColor(stockInfo.percentageChange)}`}>
-                    <span className="text-sm font-medium">
-                      {stockInfo.percentageChange > 0 ? '+' : ''}{stockInfo.percentageChange}%
-                    </span>
+                  <div className="text-3xl font-bold">₹{stockPriceData[stockPriceData.length - 1].close.toFixed(2)}</div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    Latest Price
                   </div>
                 </div>
               </div>
@@ -300,81 +374,38 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
             <div className="space-y-6">
               {/* Chart section */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <StockPriceChart symbol={company.symbol} />
+                <StockPriceChart symbol={company.symbol} isin={company.isin} />
               </div>
               
-              {/* Key metrics section */}
-              {stockInfo && (
+              {/* Stock metrics from API data */}
+              {stockPriceData.length > 0 && (
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <h3 className="text-sm font-medium text-gray-500 mb-2">Today's Range</h3>
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">Price Range</h3>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-500">Low</span>
                       <span className="text-sm text-gray-500">High</span>
                     </div>
-                    <div className="relative h-2 bg-gray-100 rounded-full mb-2">
-                      <div 
-                        className="absolute h-2 bg-black rounded-full" 
-                        style={{ 
-                          left: `${((stockInfo.ltp - stockInfo.low) / (stockInfo.high - stockInfo.low)) * 100}%`,
-                          width: '4px',
-                          transform: 'translateX(-50%)'
-                        }}
-                      ></div>
-                    </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">₹{stockInfo.low.toFixed(2)}</span>
-                      <span className="text-sm font-medium">₹{stockInfo.high.toFixed(2)}</span>
+                      <span className="text-sm font-medium">₹{Math.min(...stockPriceData.map(d => d.close)).toFixed(2)}</span>
+                      <span className="text-sm font-medium">₹{Math.max(...stockPriceData.map(d => d.close)).toFixed(2)}</span>
                     </div>
                   </div>
                   
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <h3 className="text-sm font-medium text-gray-500 mb-2">Previous Close</h3>
-                    <div className="text-lg font-medium">₹{stockInfo.close.toFixed(2)}</div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">Latest Price</h3>
+                    <div className="text-lg font-medium">₹{stockPriceData[stockPriceData.length - 1].close.toFixed(2)}</div>
                     <div className="mt-2 text-xs text-gray-500">
-                      {stockInfo.ltp > stockInfo.close ? (
-                        <span className="text-emerald-600">
-                          +₹{(stockInfo.ltp - stockInfo.close).toFixed(2)} today
-                        </span>
-                      ) : (
-                        <span className="text-rose-600">
-                          -₹{(stockInfo.close - stockInfo.ltp).toFixed(2)} today
-                        </span>
-                      )}
+                      As of {stockPriceData[stockPriceData.length - 1].date}
                     </div>
                   </div>
                   
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <h3 className="text-sm font-medium text-gray-500 mb-2">Volume</h3>
-                    <div className="text-lg font-medium">{stockInfo.volume.toLocaleString()}</div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">Data Points</h3>
+                    <div className="text-lg font-medium">{stockPriceData.length}</div>
                     <div className="mt-2 text-xs text-gray-500">
-                      As of {new Date().toLocaleTimeString()}
+                      Historical records
                     </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Additional metrics section */}
-              {stockInfo && (
-                <div className="grid grid-cols-4 gap-4 mt-4">
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <h3 className="text-xs font-medium text-gray-500 mb-1">Market Cap</h3>
-                    <div className="text-lg font-medium">₹{formatNumber(stockInfo.marketCap || 0)}</div>
-                  </div>
-                  
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <h3 className="text-xs font-medium text-gray-500 mb-1">P/E Ratio</h3>
-                    <div className="text-lg font-medium">{(stockInfo.pe || 0).toFixed(2)}</div>
-                  </div>
-                  
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <h3 className="text-xs font-medium text-gray-500 mb-1">EPS</h3>
-                    <div className="text-lg font-medium">₹{(stockInfo.eps || 0).toFixed(2)}</div>
-                  </div>
-                  
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <h3 className="text-xs font-medium text-gray-500 mb-1">Book Value</h3>
-                    <div className="text-lg font-medium">₹{(stockInfo.bookValue || 0).toFixed(2)}</div>
                   </div>
                 </div>
               )}
@@ -392,23 +423,13 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
                     </button>
                   </div>
                   {announcements.slice(0, 3).map(announcement => (
-                    <div 
+                    <CompanyAnnouncementRow
                       key={announcement.id}
-                      className="py-3 border-t border-gray-100 hover:bg-gray-50 cursor-pointer px-2 rounded-lg"
-                      onClick={() => handleAnnouncementClick(announcement)}
-                    >
-                      <div className="flex items-start">
-                        <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${
-                          announcement.sentiment === 'Positive' ? 'bg-emerald-500' :
-                          announcement.sentiment === 'Negative' ? 'bg-rose-500' : 'bg-amber-400'
-                        }`}></div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">{announcement.category}</div>
-                          <div className="text-sm text-gray-500 mt-1">{announcement.summary.substring(0, 100)}...</div>
-                          <div className="text-xs text-gray-400 mt-1">{announcement.date}</div>
-                        </div>
-                      </div>
-                    </div>
+                      announcement={announcement}
+                      isSaved={savedFilings.includes(announcement.id)}
+                      onSave={toggleSavedFiling}
+                      onClick={handleAnnouncementClick}
+                    />
                   ))}
                 </div>
               )}
@@ -418,122 +439,94 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
           {/* Financials Tab */}
           {activeTab === 'financials' && (
             <div className="space-y-6">
-              {stockInfo ? (
-                <>
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Key Financial Indicators</h2>
-                    <div className="grid grid-cols-3 gap-6">
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Price Metrics</h3>
-                        <table className="w-full">
-                          <tbody className="divide-y divide-gray-100">
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Current Price</td>
-                              <td className="py-2 text-sm font-medium text-right">₹{stockInfo.ltp.toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">52-Week High</td>
-                              <td className="py-2 text-sm font-medium text-right">₹{stockInfo.yearHigh?.toFixed(2) || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">52-Week Low</td>
-                              <td className="py-2 text-sm font-medium text-right">₹{stockInfo.yearLow?.toFixed(2) || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Market Cap</td>
-                              <td className="py-2 text-sm font-medium text-right">₹{formatNumber(stockInfo.marketCap || 0)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Financial Ratios</h3>
-                        <table className="w-full">
-                          <tbody className="divide-y divide-gray-100">
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">P/E Ratio</td>
-                              <td className="py-2 text-sm font-medium text-right">{(stockInfo.pe || 0).toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">EPS</td>
-                              <td className="py-2 text-sm font-medium text-right">₹{(stockInfo.eps || 0).toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Book Value</td>
-                              <td className="py-2 text-sm font-medium text-right">₹{(stockInfo.bookValue || 0).toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">P/B Ratio</td>
-                              <td className="py-2 text-sm font-medium text-right">{(stockInfo.ltp / (stockInfo.bookValue || 1)).toFixed(2)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Trading Information</h3>
-                        <table className="w-full">
-                          <tbody className="divide-y divide-gray-100">
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Volume</td>
-                              <td className="py-2 text-sm font-medium text-right">{stockInfo.volume.toLocaleString()}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Previous Close</td>
-                              <td className="py-2 text-sm font-medium text-right">₹{stockInfo.close.toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Open</td>
-                              <td className="py-2 text-sm font-medium text-right">₹{stockInfo.open.toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Day's Range</td>
-                              <td className="py-2 text-sm font-medium text-right">₹{stockInfo.low.toFixed(2)} - ₹{stockInfo.high.toFixed(2)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-6 pb-0">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">Historical Performance</h2>
+                  <p className="text-sm text-gray-500 mb-6">Stock price movement over time</p>
+                </div>
+                <StockPriceChart symbol={company.symbol} isin={company.isin} />
+              </div>
+
+              {stockPriceData.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Price Statistics</h2>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Price Metrics</h3>
+                      <table className="w-full">
+                        <tbody className="divide-y divide-gray-100">
+                          <tr>
+                            <td className="py-2 text-sm text-gray-500">Current Price</td>
+                            <td className="py-2 text-sm font-medium text-right">₹{stockPriceData[stockPriceData.length - 1].close.toFixed(2)}</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 text-sm text-gray-500">Highest</td>
+                            <td className="py-2 text-sm font-medium text-right">₹{Math.max(...stockPriceData.map(d => d.close)).toFixed(2)}</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 text-sm text-gray-500">Lowest</td>
+                            <td className="py-2 text-sm font-medium text-right">₹{Math.min(...stockPriceData.map(d => d.close)).toFixed(2)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Data Information</h3>
+                      <table className="w-full">
+                        <tbody className="divide-y divide-gray-100">
+                          <tr>
+                            <td className="py-2 text-sm text-gray-500">Records</td>
+                            <td className="py-2 text-sm font-medium text-right">{stockPriceData.length}</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 text-sm text-gray-500">From</td>
+                            <td className="py-2 text-sm font-medium text-right">{stockPriceData[0]?.date}</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 text-sm text-gray-500">To</td>
+                            <td className="py-2 text-sm font-medium text-right">{stockPriceData[stockPriceData.length - 1]?.date}</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                  
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="p-6 pb-0">
-                      <h2 className="text-xl font-semibold text-gray-900 mb-2">Historical Performance</h2>
-                      <p className="text-sm text-gray-500 mb-6">Stock price movement over time</p>
-                    </div>
-                    <StockPriceChart symbol={company.symbol} />
-                  </div>
-                </>
-              ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                    <FileText size={24} className="text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Financial data unavailable</h3>
-                  <p className="text-gray-500 mb-4">We couldn't retrieve the financial information for this company.</p>
                 </div>
               )}
             </div>
           )}
           
-          {/* Announcements Tab */}
+          {/* Announcements Tab - CLEANED UP */}
           {activeTab === 'announcements' && (
             <div className="space-y-6">
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">Company Announcements</h2>
+                {/* REMOVED: Redundant "Company Announcements" title */}
                 
-                <AnnouncementList
-                  announcements={announcements}
-                  savedFilings={savedFilings}
-                  showSavedOnly={showSavedFilings}
-                  isLoading={isLoading}
-                  error={error}
-                  onSaveToggle={toggleSavedFiling}
-                  onAnnouncementClick={handleAnnouncementClick}
-                  onCompanyClick={() => {}}
-                  onClearFilters={() => {}}
-                />
+                {isLoading ? (
+                  <div className="py-16 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-black"></div>
+                  </div>
+                ) : error ? (
+                  <div className="py-16 flex items-center justify-center">
+                    <div className="text-red-500">{error}</div>
+                  </div>
+                ) : announcements.length === 0 ? (
+                  <div className="py-16 flex flex-col items-center justify-center">
+                    <div className="text-gray-500 mb-4">No announcements found for this company</div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {announcements.map(announcement => (
+                      <CompanyAnnouncementRow
+                        key={announcement.id}
+                        announcement={announcement}
+                        isSaved={savedFilings.includes(announcement.id)}
+                        onSave={toggleSavedFiling}
+                        onClick={handleAnnouncementClick}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -541,130 +534,86 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
           {/* About Tab */}
           {activeTab === 'about' && (
             <div className="space-y-6">
-              {companyProfile ? (
-                <>
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Company Overview</h2>
-                    <p className="text-gray-600 leading-relaxed mb-6">
-                      {companyProfile.description}
-                    </p>
-                    
-                    <div className="grid grid-cols-2 gap-6 mt-6">
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center">
-                          <Briefcase size={16} className="mr-2" />
-                          Company Information
-                        </h3>
-                        <table className="w-full">
-                          <tbody className="divide-y divide-gray-100">
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Founded</td>
-                              <td className="py-2 text-sm font-medium text-right">{companyProfile.founded || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Industry</td>
-                              <td className="py-2 text-sm font-medium text-right">{companyProfile.industry || company.industry || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Sector</td>
-                              <td className="py-2 text-sm font-medium text-right">{companyProfile.sector || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Employees</td>
-                              <td className="py-2 text-sm font-medium text-right">{companyProfile.employees?.toLocaleString() || 'N/A'}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center">
-                          <Users size={16} className="mr-2" />
-                          Leadership & Contact
-                        </h3>
-                        <table className="w-full">
-                          <tbody className="divide-y divide-gray-100">
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">CEO</td>
-                              <td className="py-2 text-sm font-medium text-right">{companyProfile.ceo || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Headquarters</td>
-                              <td className="py-2 text-sm font-medium text-right">{companyProfile.headquarters || 'N/A'}</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">Website</td>
-                              <td className="py-2 text-sm font-medium text-right">
-                                {companyProfile.website ? (
-                                  <a 
-                                    href={companyProfile.website} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-indigo-600 hover:text-indigo-800"
-                                  >
-                                    {companyProfile.website.replace(/(^\w+:|^)\/\//, '')}
-                                  </a>
-                                ) : (
-                                  'N/A'
-                                )}
-                              </td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-sm text-gray-500">ISIN</td>
-                              <td className="py-2 text-sm font-medium text-right">{company.isin || 'N/A'}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Company Information</h2>
+                
+                <div className="grid grid-cols-2 gap-6 mt-6">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center">
+                      <Briefcase size={16} className="mr-2" />
+                      Basic Information
+                    </h3>
+                    <table className="w-full">
+                      <tbody className="divide-y divide-gray-100">
+                        <tr>
+                          <td className="py-2 text-sm text-gray-500">Company Name</td>
+                          <td className="py-2 text-sm font-medium text-right">{company.name}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-sm text-gray-500">Symbol</td>
+                          <td className="py-2 text-sm font-medium text-right">{company.symbol}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-sm text-gray-500">Industry</td>
+                          <td className="py-2 text-sm font-medium text-right">{company.industry || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-sm text-gray-500">ISIN</td>
+                          <td className="py-2 text-sm font-medium text-right">{company.isin || 'N/A'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                   
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <div className="flex items-center mb-4">
-                      <Tag size={18} className="text-gray-500 mr-2" />
-                      <h3 className="text-lg font-medium text-gray-900">Related Companies</h3>
-                    </div>
-                    
-                    <div className="grid grid-cols-3 gap-4">
-                      {/* This would be populated with actual data in a real implementation */}
-                      <div className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer">
-                        <div className="font-medium">{companyProfile.industry} Sector</div>
-                        <div className="text-sm text-gray-500 mt-1">View related companies in the same sector</div>
-                      </div>
-                    </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center">
+                      <Users size={16} className="mr-2" />
+                      Market Information
+                    </h3>
+                    <table className="w-full">
+                      <tbody className="divide-y divide-gray-100">
+                        <tr>
+                          <td className="py-2 text-sm text-gray-500">Listed Exchange</td>
+                          <td className="py-2 text-sm font-medium text-right">NSE</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-sm text-gray-500">Data Points</td>
+                          <td className="py-2 text-sm font-medium text-right">{stockPriceData.length || 0}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-sm text-gray-500">Announcements</td>
+                          <td className="py-2 text-sm font-medium text-right">{announcements.length}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
-                </>
-              ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                    <Info size={24} className="text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Company information unavailable</h3>
-                  <p className="text-gray-500 mb-4">We couldn't retrieve detailed information about this company.</p>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
       </div>
       
-      {/* Overlay when detail panel is open */}
+      {/* FIXED: Blur entire background including header when detail panel is open */}
       {selectedDetail && (
-        <div 
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-20"
-          onClick={() => setSelectedDetail(null)}
-        ></div>
-      )}
-      
-      {/* Detail Panel */}
-      {selectedDetail && (
-        <DetailPanel 
-          announcement={selectedDetail}
-          isSaved={savedFilings.includes(selectedDetail.id)}
-          onClose={() => setSelectedDetail(null)}
-          onSave={toggleSavedFiling}
-          onViewAllAnnouncements={() => {}}
-        />
+        <>
+          {/* Backdrop that blurs everything behind */}
+          <div 
+            className="fixed inset-0 bg-black/20 backdrop-blur-md z-20"
+            onClick={() => setSelectedDetail(null)}
+          ></div>
+          
+          {/* Detail Panel */}
+          <div className="fixed top-0 right-0 w-2/3 h-full bg-white shadow-xl z-30 border-l border-gray-200 overflow-auto">
+            <DetailPanel 
+              announcement={selectedDetail}
+              isSaved={savedFilings.includes(selectedDetail.id)}
+              onClose={() => setSelectedDetail(null)}
+              onSave={toggleSavedFiling}
+              onViewAllAnnouncements={() => {}}
+            />
+          </div>
+        </>
       )}
       
       {/* Create Watchlist Modal */}

@@ -22,24 +22,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [showFilterModal, setShowFilterModal] = useState(false);
   
-  // FIXED: Get the proper page title with icon
+  // FIXED: Clean page title without company name in header
   const getPageTitle = () => {
     switch (activePage) {
       case 'watchlist':
         return ' Watchlist';
       case 'company':
-        return ` ${selectedCompany || 'Company'}`;
+        return ' Company Details'; // FIXED: Generic title instead of company name
       default:
-        return ' Announcement Dashboard'; // FIXED: Added proper title with icon
+        return ' Announcement Dashboard';
     }
   };
   
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* FIXED: Header - Full Width with proper title display */}
+      {/* Header - Full Width with clean title display */}
       <div className="fixed top-0 left-0 right-0 z-30 bg-white shadow-sm border-b border-gray-100">
         <div className="flex items-center justify-between h-16 px-6">
-          {/* FIXED: Left side - MarketWire branding + Page Title */}
+          {/* Left side - MarketWire branding + Clean Page Title */}
           <div className="flex items-center space-x-4">
             {/* MarketWire Logo */}
             <button 
@@ -50,7 +50,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               MarketWire
             </button>
             
-            {/* FIXED: Page Title with proper spacing and prominence */}
+            {/* Clean Page Title without company name */}
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-gray-900 ml-60">
                 {getPageTitle()}

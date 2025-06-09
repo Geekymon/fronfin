@@ -125,6 +125,12 @@ export interface ProcessedAnnouncement {
   isNew?: boolean;
 }
 
+// NEW INTERFACE: Stock price data point
+export interface StockPriceData {
+  close: number;
+  date: string; // Format: "YYYY-MM-DD"
+}
+
 // Define watchlist interfaces to match the backend structure
 export interface Watchlist {
   _id: string;
@@ -474,6 +480,34 @@ const generateTestData = (count: number): ProcessedAnnouncement[] => {
   }
   
   return testData;
+};
+
+// NEW METHOD: Fetch stock price data from the new API endpoint
+export const fetchStockPriceData = async (isin: string): Promise<StockPriceData[]> => {
+  try {
+    console.log(`Fetching stock price data for ISIN: ${isin}`);
+    
+    // FIXED: Use apiClient which automatically includes auth token via interceptor
+    const response = await apiClient.get(`/stock_price?isin=${encodeURIComponent(isin)}`);
+    
+    if (response.data && Array.isArray(response.data)) {
+      // Sort by date to ensure chronological order (oldest first for charts)
+      const sortedData = response.data.sort((a: StockPriceData, b: StockPriceData) => 
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+      
+      console.log(`Received ${sortedData.length} stock price data points`);
+      return sortedData;
+    } else {
+      console.warn('Invalid stock price data format received');
+      return [];
+    }
+  } catch (error) {
+    console.error('Error fetching stock price data:', error);
+    
+    // If the API fails, return empty array so component can handle gracefully
+    return [];
+  }
 };
 
 // Fetch announcements from the server with improved error handling
