@@ -61,11 +61,11 @@ const WatchlistAnnouncements: React.FC<WatchlistAnnouncementsProps> = ({
         setAnnouncements(data);
         
         // Filter announcements based on watchlist type
-        if (watchlist.categories && watchlist.categories.length > 0) {
+        if (watchlist.category && watchlist.category.length > 0) {
           // Category-based filtering
-          console.log(`Filtering by ${watchlist.categories.length} categories`);
+          console.log(`Filtering by ${watchlist.category.length} categories`);
           const categoryFiltered = data.filter(announcement => 
-            watchlist.categories?.includes(announcement.category)
+            watchlist.category?.includes(announcement.category)
           );
           setFilteredAnnouncements(categoryFiltered);
           console.log(`Found ${categoryFiltered.length} announcements matching categories`);
@@ -81,7 +81,7 @@ const WatchlistAnnouncements: React.FC<WatchlistAnnouncementsProps> = ({
           );
           
           // If we have both categories and companies, merge the results
-          if (watchlist.categories && watchlist.categories.length > 0) {
+          if (watchlist.category && watchlist.category.length > 0) {
             const categoryFiltered = filteredAnnouncements;
             // Combine unique announcements from both filters
             const combinedAnnouncements = [...categoryFiltered];
@@ -99,7 +99,7 @@ const WatchlistAnnouncements: React.FC<WatchlistAnnouncementsProps> = ({
             setFilteredAnnouncements(companyFiltered);
             console.log(`Found ${companyFiltered.length} announcements matching companies`);
           }
-        } else if (!watchlist.categories || watchlist.categories.length === 0) {
+        } else if (!watchlist.category || watchlist.category.length === 0) {
           // If no companies and no categories
           setFilteredAnnouncements([]);
         }
