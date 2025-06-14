@@ -288,7 +288,18 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
               <Tag size={16} className="text-gray-400 mt-0.5 mr-2" />
               <div>
                 <div className="text-xs font-medium text-gray-500 uppercase mb-1">Category</div>
-                <div className="text-sm font-medium text-gray-900">{getCategory()}</div>
+                <div className="text-sm font-medium">
+                  <span 
+                    className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border"
+                    style={{
+                      backgroundColor: '#E8F5E8',
+                      borderColor: '#C8E6C9',
+                      color: '#2E7D32'
+                    }}
+                  >
+                    {getCategory()}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -329,11 +340,6 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
               </div>
             </div>
           </div>
-
-          {/* <div>
-            <div className="text-xs font-medium text-gray-500 uppercase mb-2">Details</div>
-            {renderContent()}
-          </div> */}
         </div>
 
         <div className="mt-8 pt-6 border-t border-gray-100">

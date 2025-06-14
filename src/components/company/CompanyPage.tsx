@@ -309,6 +309,8 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
       setSelectedCompany={setSelectedCompany}
       headerRight={headerRight}
       onNavigate={onNavigate}
+      isDetailPanelOpen={!!selectedDetail}
+      onCloseDetailPanel={() => setSelectedDetail(null)}
     >
       <div className="flex flex-col h-full overflow-auto">
         {/* Company header with key metrics */}
@@ -594,26 +596,17 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
         </div>
       </div>
       
-      {/* FIXED: Blur entire background including header when detail panel is open */}
+      {/* Detail Panel overlaying entire screen */}
       {selectedDetail && (
-        <>
-          {/* Backdrop that blurs everything behind */}
-          <div 
-            className="fixed inset-0 bg-black/20 backdrop-blur-md z-20"
-            onClick={() => setSelectedDetail(null)}
-          ></div>
-          
-          {/* Detail Panel */}
-          <div className="fixed top-0 right-0 w-2/3 h-full bg-white shadow-xl z-30 border-l border-gray-200 overflow-auto">
-            <DetailPanel 
-              announcement={selectedDetail}
-              isSaved={savedFilings.includes(selectedDetail.id)}
-              onClose={() => setSelectedDetail(null)}
-              onSave={toggleSavedFiling}
-              onViewAllAnnouncements={() => {}}
-            />
-          </div>
-        </>
+        <div className="fixed top-0 right-0 w-2/3 h-full bg-white shadow-xl z-50 border-l border-gray-200 overflow-auto">
+          <DetailPanel 
+            announcement={selectedDetail}
+            isSaved={savedFilings.includes(selectedDetail.id)}
+            onClose={() => setSelectedDetail(null)}
+            onSave={toggleSavedFiling}
+            onViewAllAnnouncements={() => {}}
+          />
+        </div>
       )}
       
       {/* Create Watchlist Modal */}

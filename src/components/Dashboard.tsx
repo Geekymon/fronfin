@@ -1,4 +1,4 @@
-// src/components/Dashboard.tsx - Cleaned header and fixed auto-reload behavior
+// src/components/Dashboard.tsx - Updated with new header layout and date filters
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Calendar, Filter, RefreshCw, AlertTriangle, Star, StarOff, Bell } from 'lucide-react';
@@ -56,6 +56,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'company' | 'category'>('all');
   const [isRetrying, setIsRetrying] = useState(false);
+  const [activeDateFilter, setActiveDateFilter] = useState<'today' | 'last7' | 'last30' | 'custom'>('custom');
 
   // Search-specific state
   const [searchResults, setSearchResults] = useState<CompanySearchResult[]>([]);
@@ -85,6 +86,35 @@ const Dashboard: React.FC<DashboardProps> = ({
     setSelectedIndustries
   } = useFilters();
 
+  // Helper function to get formatted date strings
+  const getFormattedDate = (date: Date): string => {
+    return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD format
+  };
+
+  // Quick date filter handlers
+  const setTodayFilter = () => {
+    const today = new Date();
+    const todayStr = getFormattedDate(today);
+    setDateRange(todayStr, todayStr);
+    setActiveDateFilter('today');
+  };
+
+  const setLast7DaysFilter = () => {
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    setDateRange(getFormattedDate(sevenDaysAgo), getFormattedDate(today));
+    setActiveDateFilter('last7');
+  };
+
+  const setLast30DaysFilter = () => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    setDateRange(getFormattedDate(thirtyDaysAgo), getFormattedDate(today));
+    setActiveDateFilter('last30');
+  };
+
   // Handle marking announcements as read
   const markAnnouncementAsRead = useCallback((id: string) => {
     if (!viewedAnnouncements.includes(id)) {
@@ -100,7 +130,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     setSelectedDetail(announcement);
   };
 
-  // FIXED: Handle reload trigger from notification badge (don't auto-merge new announcements)
+  // Handle reload trigger from notification badge
   useEffect(() => {
     if (reloadTrigger !== previousReloadTrigger.current && reloadTrigger > 0) {
       console.log('Reload trigger detected, reloading announcements');
@@ -110,9 +140,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       loadAnnouncements();
     }
   }, [reloadTrigger]);
-
-  // REMOVED: Auto-merge of new announcements - now only badge shows them
-  // The newAnnouncements prop is ignored for auto-display to prevent auto-refresh
 
   // Load viewed announcements from localStorage on mount
   useEffect(() => {
@@ -492,6 +519,9 @@ const Dashboard: React.FC<DashboardProps> = ({
       type === 'start' ? value : filters.dateRange.start,
       type === 'end' ? value : filters.dateRange.end
     );
+    
+    // Set to custom when manually changing dates
+    setActiveDateFilter('custom');
   };
 
   const resetFilters = () => {
@@ -554,89 +584,66 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Display current page announcements
   const displayedAnnouncements = getCurrentPageItems();
 
-  // CLEANED: Simplified header content - removed unwanted elements
+  // Header content with centered search
   const headerContent = (
-    <div className="flex items-center space-x-4">
-      {/* Enhanced Search with dropdown */}
-      <div className="relative w-72" ref={searchRef}>
-        <div className="flex items-center">
-          <Search className="text-gray-400 absolute ml-3" size={16} />
-          <input
-            type="text"
-            placeholder="Search by name, ticker, or ISIN..."
-            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 transition-all"
-            value={filters.searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onFocus={() => {
-              if (filters.searchTerm.length >= 2 && searchResults.length > 0) {
-                setShowSearchResults(true);
-              }
-            }}
-          />
-          {isSearchLoading && (
-            <div className="absolute right-3 top-2.5">
-              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-900"></div>
-            </div>
-          )}
-        </div>
-
-        {/* Search Results Dropdown */}
-        {showSearchResults && searchResults.length > 0 && (
-          <div className="absolute z-40 mt-2 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-            <ul className="max-h-80 overflow-y-auto divide-y divide-gray-100">
-              {searchResults.map((company, index) => (
-                <li
-                  key={company.ISIN || company.isin || `result-${index}`}
-                  className="p-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => handleSearchSelect(company)}
-                >
-                  <div className="font-medium text-gray-900">
-                    {company.NewName || company.newname || company.OldName || company.oldname}
-                  </div>
-                  <div className="flex flex-wrap items-center mt-1 gap-2">
-                    {(company.NewNSEcode || company.newnsecode || company.OldNSEcode || company.oldnsecode) && (
-                      <span className="text-xs font-semibold bg-gray-100 text-gray-800 px-2 py-0.5 rounded-md">
-                        {company.NewNSEcode || company.newnsecode || company.OldNSEcode || company.oldnsecode}
-                      </span>
-                    )}
-                    {(company.ISIN || company.isin) && (
-                      <span className="text-xs font-semibold bg-blue-50 text-blue-800 px-2 py-0.5 rounded-md">
-                        ISIN: {company.ISIN || company.isin}
-                      </span>
-                    )}
-                    {company.industry && (
-                      <span className="text-xs text-gray-500">
-                        {company.industry}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+    /* Enhanced Search with dropdown - Centered and wider */
+    <div className="relative w-96" ref={searchRef}>
+      <div className="flex items-center">
+        <Search className="text-gray-400 absolute ml-3" size={16} />
+        <input
+          type="text"
+          placeholder="Search by name, ticker, or ISIN..."
+          className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 transition-all"
+          value={filters.searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onFocus={() => {
+            if (filters.searchTerm.length >= 2 && searchResults.length > 0) {
+              setShowSearchResults(true);
+            }
+          }}
+        />
+        {isSearchLoading && (
+          <div className="absolute right-3 top-2.5">
+            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-900"></div>
           </div>
         )}
       </div>
 
-      {/* Date Range Filters */}
-      <div className="flex items-center space-x-2">
-        <input
-          type="date"
-          value={filters.dateRange.start}
-          min="2010-01-01"
-          max={filters.dateRange.end || new Date().toISOString().split('T')[0]}
-          onChange={(e) => handleDateChange('start', e.target.value)}
-          className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-300"
-        />
-        <span className="text-gray-500">-</span>
-        <input
-          type="date"
-          value={filters.dateRange.end}
-          min={filters.dateRange.start || "2010-01-01"}
-          max={new Date().toISOString().split('T')[0]}
-          onChange={(e) => handleDateChange('end', e.target.value)}
-          className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-300"
-        />
-      </div>
+      {/* Search Results Dropdown */}
+      {showSearchResults && searchResults.length > 0 && (
+        <div className="absolute z-40 mt-2 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+          <ul className="max-h-80 overflow-y-auto divide-y divide-gray-100">
+            {searchResults.map((company, index) => (
+              <li
+                key={company.ISIN || company.isin || `result-${index}`}
+                className="p-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                onClick={() => handleSearchSelect(company)}
+              >
+                <div className="font-medium text-gray-900">
+                  {company.NewName || company.newname || company.OldName || company.oldname}
+                </div>
+                <div className="flex flex-wrap items-center mt-1 gap-2">
+                  {(company.NewNSEcode || company.newnsecode || company.OldNSEcode || company.oldnsecode) && (
+                    <span className="text-xs font-semibold bg-gray-100 text-gray-800 px-2 py-0.5 rounded-md">
+                      {company.NewNSEcode || company.newnsecode || company.OldNSEcode || company.oldnsecode}
+                    </span>
+                  )}
+                  {(company.ISIN || company.isin) && (
+                    <span className="text-xs font-semibold bg-blue-50 text-blue-800 px-2 py-0.5 rounded-md">
+                      ISIN: {company.ISIN || company.isin}
+                    </span>
+                  )}
+                  {company.industry && (
+                    <span className="text-xs text-gray-500">
+                      {company.industry}
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 
@@ -648,13 +655,74 @@ const Dashboard: React.FC<DashboardProps> = ({
       setSelectedCompany={setSelectedCompany}
       headerRight={headerContent}
       onNavigate={onNavigate}
+      isDetailPanelOpen={!!selectedDetail}
+      onCloseDetailPanel={() => setSelectedDetail(null)}
     >
+      {/* Date Filter Section - Only show when on Announcements page */}
+      <div className="bg-white border-b border-gray-100 px-6 py-2">
+        <div className="flex justify-between items-center">
+          {/* Quick Filter Buttons - Left side */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-500">Quick filters:</span>
+            <button
+              onClick={setTodayFilter}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activeDateFilter === 'today' 
+                  ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                  : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={setLast7DaysFilter}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activeDateFilter === 'last7' 
+                  ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                  : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              Last 7 Days
+            </button>
+            <button
+              onClick={setLast30DaysFilter}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activeDateFilter === 'last30' 
+                  ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                  : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100'
+              }`}
+            >
+              Last 30 Days
+            </button>
+          </div>
+
+          {/* Date Range Filters - Right side */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="date"
+              value={filters.dateRange.start}
+              min="2010-01-01"
+              max={filters.dateRange.end || new Date().toISOString().split('T')[0]}
+              onChange={(e) => handleDateChange('start', e.target.value)}
+              className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-300"
+            />
+            <span className="text-gray-500">-</span>
+            <input
+              type="date"
+              value={filters.dateRange.end}
+              min={filters.dateRange.start || "2010-01-01"}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={(e) => handleDateChange('end', e.target.value)}
+              className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-300"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Main content container with scrolling */}
       <div className="flex flex-col h-full overflow-auto">
         {/* Connection error message if needed */}
         {renderConnectionError()}
-
-        {/* REMOVED: Metrics Panel as requested */}
 
         {/* Company filter bar (optional) - will scroll away */}
         {filters.selectedCompany && (
@@ -817,7 +885,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   onSave={toggleSavedFiling}
                   onClick={handleAnnouncementClick}
                   onCompanyClick={handleCompanyClick}
-                  isNew={false} // FIXED: Don't show "new" badges since we're not auto-merging
+                  isNew={false}
                   onMarkAsRead={markAnnouncementAsRead}
                 />
               ))
@@ -836,7 +904,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Detail Panel */}
         {selectedDetail && (
-          <div className="fixed top-16 right-0 w-2/3 h-[calc(100%-4rem)] bg-white shadow-xl z-30 border-l border-gray-200 overflow-auto">
+          <div className="fixed top-0 right-0 w-2/3 h-full bg-white shadow-xl z-50 border-l border-gray-200 overflow-auto">
             <DetailPanel
               announcement={selectedDetail}
               isSaved={savedFilings.includes(selectedDetail.id)}
@@ -859,14 +927,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
       </div>
-
-      {/* Backdrop for when detail panel is open */}
-      {selectedDetail && (
-        <div
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-20"
-          onClick={() => setSelectedDetail(null)}
-        ></div>
-      )}
 
       {/* Filter Modal */}
       {showFilterModal && (

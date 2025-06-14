@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
 import FilterModal from '../common/FilterModal';
 
@@ -9,6 +10,8 @@ interface MainLayoutProps {
   selectedCompany: string | null;
   setSelectedCompany: (company: string | null) => void;
   onNavigate: (page: 'home' | 'watchlist' | 'company') => void;
+  isDetailPanelOpen?: boolean; // Add prop to track detail panel state
+  onCloseDetailPanel?: () => void; // Add callback to close detail panel
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -17,30 +20,37 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   activePage,
   selectedCompany,
   setSelectedCompany,
-  onNavigate
+  onNavigate,
+  isDetailPanelOpen = false,
+  onCloseDetailPanel
 }) => {
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  
-  // FIXED: Clean page title without company name in header
-  const getPageTitle = () => {
-    switch (activePage) {
-      case 'watchlist':
-        return ' Watchlist';
-      case 'company':
-        return ' Company Details'; // FIXED: Generic title instead of company name
-      default:
-        return ' Announcement Dashboard';
-    }
-  };
   
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* Full page blur overlay when detail panel is open */}
+      {isDetailPanelOpen && (
+        <div 
+          className="fixed inset-0 backdrop-blur-sm bg-black/10 z-40 cursor-pointer" 
+          onClick={onCloseDetailPanel}
+        />
+      )}
+
       {/* Header - Full Width with clean title display */}
       <div className="fixed top-0 left-0 right-0 z-30 bg-white shadow-sm border-b border-gray-100">
-        <div className="flex items-center justify-between h-16 px-6">
-          {/* Left side - MarketWire branding + Clean Page Title */}
-          <div className="flex items-center space-x-4">
+        <div className="flex items-center h-16 px-6">
+          {/* Left side - Sidebar toggle and MarketWire branding */}
+          <div className="flex items-center space-x-4 w-80">
+            {/* Sidebar Toggle Button */}
+            <button
+              onClick={() => setSidebarExpanded(!sidebarExpanded)}
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              title={sidebarExpanded ? "Collapse Sidebar" : "Expand Sidebar"}
+            >
+              <Menu size={20} />
+            </button>
+            
             {/* MarketWire Logo */}
             <button 
               onClick={() => onNavigate('home')}
@@ -49,19 +59,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             >
               MarketWire
             </button>
-            
-            {/* Clean Page Title without company name */}
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900 ml-60">
-                {getPageTitle()}
-              </h1>
-            </div>
           </div>
           
-          {/* Right side - Header content passed as prop */}
-          <div className="flex items-center">
+          {/* Center - Header content (search bar) */}
+          <div className="flex-1 flex justify-center">
             {headerRight}
           </div>
+          
+          {/* Right side - Empty for balance */}
+          <div className="w-80"></div>
         </div>
       </div>
 
@@ -77,7 +83,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       
       {/* Main Content - Adjusted for fixed header and sidebar */}
       <div 
-        className={`flex flex-col transition-all duration-300 ${sidebarExpanded ? 'ml-64' : 'ml-16'} flex-1 mt-16`}
+        className={`flex flex-col ${sidebarExpanded ? 'ml-64' : 'ml-0'} flex-1 mt-16 transition-all duration-300`}
       >
         {/* Main content */}
         {children}

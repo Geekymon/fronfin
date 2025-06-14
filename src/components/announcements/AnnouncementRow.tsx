@@ -1,4 +1,4 @@
-// src/components/announcements/AnnouncementRow.tsx - Updated for better handling of new announcements
+// src/components/announcements/AnnouncementRow.tsx - Updated with green category tags
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Star, StarOff, Bell } from 'lucide-react';
@@ -54,25 +54,6 @@ const AnnouncementRow: React.FC<AnnouncementRowProps> = ({
     };
   }
 }, [isNew]);
-  
-  // When the isNew prop changes from false to true (e.g., for a new update)
-  // useEffect(() => {
-  //   if (isNew) {
-  //     setIsHighlighted(true);
-  //     setIsAnimating(true);
-  //     setIsPulsing(true);
-      
-  //     // Try to scroll into view when new arrives
-  //     if (rowRef.current) {
-  //       setTimeout(() => {
-  //         rowRef.current?.scrollIntoView({ 
-  //           behavior: 'smooth', 
-  //           block: 'center'
-  //         });
-  //       }, 100);
-  //     }
-  //   }
-  // }, [isNew]);
 
   const handleRowClick = () => {
     // Mark as read when clicked
@@ -141,11 +122,16 @@ const AnnouncementRow: React.FC<AnnouncementRowProps> = ({
         </div>
       </div>
 
-      {/* Category */}
+      {/* Category with refined styling */}
       <div className="col-span-2">
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-          isViewed && !isHighlighted ? 'bg-gray-100/80 text-gray-600' : 'bg-gray-100 text-gray-800 shadow-sm'
-        } ${isHighlighted ? 'bg-blue-100 text-blue-800' : ''} border border-gray-100/60`}>
+        <span 
+          className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium text-gray-700 "
+          style={{
+            backgroundColor: '#E8F5E8',
+            borderColor: '#C8E6C9',
+            color: '#2E7D32'
+          }}
+        >
           {categoryToDisplay}
         </span>
       </div>
@@ -187,81 +173,4 @@ const AnnouncementRow: React.FC<AnnouncementRowProps> = ({
   );
 };
 
-// Add the CSS for the animation
-// This would go in your global CSS or in a style tag
-const AnimationStyles = () => (
-  <style jsx global>{`
-    @keyframes pulse-slow {
-      0%, 100% {
-        background-color: rgba(239, 246, 255, 0.6);
-      }
-      50% {
-        background-color: rgba(219, 234, 254, 1);
-      }
-    }
-    
-    .animate-pulse-slow {
-      animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-    
-    /* Badge pulse animation */
-    @keyframes badge-pulse {
-      0%, 100% {
-        opacity: 1;
-        transform: scale(1);
-      }
-      50% {
-        opacity: 0.6;
-        transform: scale(1.2);
-      }
-    }
-    
-    .badge-pulse {
-      animation: badge-pulse 1.5s infinite ease-in-out;
-    }
-    
-    /* Transition for non-animating elements */
-    .bg-blue-50 {
-      transition: background-color 0.5s ease-in-out;
-    }
-    
-    /* New announcement indicator flash */
-    @keyframes flash {
-      0% {
-        background-color: rgba(219, 234, 254, 0.9);
-      }
-      100% {
-        background-color: transparent;
-      }
-    }
-    
-    .flash-animation {
-      animation: flash 1.5s ease-out;
-    }
-    
-    /* Smooth transition for all row changes */
-    .announcement-row-transition {
-      transition: background-color 0.5s ease-out, color 0.3s ease-out, transform 0.3s ease-out;
-    }
-    
-    /* Special animation for newly arrived announcements */
-    .announcement-row-new-arrival {
-      animation: slideDown 0.5s ease-out forwards;
-    }
-    
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        transform: translateY(-20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-  `}</style>
-);
-
-// Export both component and styles
-export { AnimationStyles };
 export default AnnouncementRow;
