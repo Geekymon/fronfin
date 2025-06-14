@@ -5,13 +5,17 @@ import { io, Socket } from 'socket.io-client';
 import { sortByNewestDate } from './utils/dateUtils';
 
 // Determine the correct API base URL based on environment
+// const getBaseUrl = () => {
+//   // In development, use the backend port directly
+//   if (process.env.NODE_ENV === 'development') {
+//     return 'https://fin.anshulkr.com/api';
+//   }
+//   // In production, use the relative path which will be handled by the server
+//   return '/api';
+// };
+
 const getBaseUrl = () => {
-  // In development, use the backend port directly
-  if (process.env.NODE_ENV === 'development') {
-    return 'https://fin.anshulkr.com/api';
-  }
-  // In production, use the relative path which will be handled by the server
-  return '/api';
+  return 'https://fin.anshulkr.com/api';
 };
 
 // Create a reusable axios instance with base configuration
