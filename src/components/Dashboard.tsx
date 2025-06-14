@@ -609,7 +609,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         )}
       </div>
 
-      {/* Search Results Dropdown */}
+      {/* FIXED: Search Results Dropdown with proper layout */}
       {showSearchResults && searchResults.length > 0 && (
         <div className="absolute z-40 mt-2 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
           <ul className="max-h-80 overflow-y-auto divide-y divide-gray-100">
@@ -622,20 +622,23 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="font-medium text-gray-900">
                   {company.NewName || company.newname || company.OldName || company.oldname}
                 </div>
-                <div className="flex flex-wrap items-center mt-1 gap-2">
-                  {(company.NewNSEcode || company.newnsecode || company.OldNSEcode || company.oldnsecode) && (
-                    <span className="text-xs font-semibold bg-gray-100 text-gray-800 px-2 py-0.5 rounded-md">
-                      {company.NewNSEcode || company.newnsecode || company.OldNSEcode || company.oldnsecode}
-                    </span>
-                  )}
+                {/* FIXED: Symbol on left, ISIN on right */}
+                <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center gap-2">
+                    {(company.NewNSEcode || company.newnsecode || company.OldNSEcode || company.oldnsecode) && (
+                      <span className="text-xs font-semibold bg-gray-100 text-gray-800 px-2 py-0.5 rounded-md">
+                        {company.NewNSEcode || company.newnsecode || company.OldNSEcode || company.oldnsecode}
+                      </span>
+                    )}
+                    {company.industry && (
+                      <span className="text-xs text-gray-500">
+                        {company.industry}
+                      </span>
+                    )}
+                  </div>
                   {(company.ISIN || company.isin) && (
                     <span className="text-xs font-semibold bg-blue-50 text-blue-800 px-2 py-0.5 rounded-md">
                       ISIN: {company.ISIN || company.isin}
-                    </span>
-                  )}
-                  {company.industry && (
-                    <span className="text-xs text-gray-500">
-                      {company.industry}
                     </span>
                   )}
                 </div>

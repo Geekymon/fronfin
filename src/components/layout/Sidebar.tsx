@@ -125,39 +125,40 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
+      {/* FIXED: Complete collapse - w-0 and hidden when collapsed */}
       <div 
-        className={`fixed left-0 text-sm top-16 h-[calc(100%-4rem)] bg-white shadow-md z-10 transition-all duration-300 ease-in-out ${
-          sidebarExpanded ? 'w-64' : 'w-16'
+        className={`fixed left-0 text-sm top-16 h-[calc(100%-4rem)] bg-white shadow-md z-10 transition-all duration-300 ease-in-out overflow-hidden ${
+          sidebarExpanded ? 'w-64 opacity-100 visible' : 'w-0 opacity-0 invisible'
         }`}
       >
         <div className="flex flex-col h-full pt-6 pb-4 overflow-y-auto">
           {/* Navigation Section */}
-          <div className={`flex flex-col ${sidebarExpanded ? 'px-3' : 'items-center'} space-y-2 mb-6`}>
+          <div className="flex flex-col px-3 space-y-2 mb-6">
             {/* Announcements Button */}
             <button 
-              className={`flex items-center ${sidebarExpanded ? 'justify-start px-4' : 'justify-center'} py-2 rounded-xl w-full ${
+              className={`flex items-center justify-start px-4 py-2 rounded-xl w-full ${
                 activePage === 'home' && !selectedCompany ? 'text-black bg-blue-100' : 'text-black'
               } hover:bg-blue-50 transition-colors`}
               onClick={() => onNavigate('home')}
             >
               <Home size={20} />
-              {sidebarExpanded && <span className="ml-3 font-medium">Announcements</span>}
+              <span className="ml-3 font-medium">Announcements</span>
             </button>
 
             {/* Watchlist Button */}
             <button 
-              className={`flex items-center ${sidebarExpanded ? 'justify-start px-4' : 'justify-center'} py-2 rounded-xl w-full ${
+              className={`flex items-center justify-start px-4 py-2 rounded-xl w-full ${
                 activePage === 'watchlist' ? 'text-black bg-blue-100' : 'text-black'
               } hover:bg-blue-50 transition-colors`}
               onClick={() => onNavigate('watchlist')}
             >
               <Star size={20} />
-              {sidebarExpanded && <span className="ml-3 font-medium">Watchlist</span>}
+              <span className="ml-3 font-medium">Watchlist</span>
             </button>
           </div>
 
           {/* Filter Sections - Only show on Announcements page */}
-          {sidebarExpanded && activePage === 'home' && (
+          {activePage === 'home' && (
             <div className="px-3 mb-6">
               {/* Filter Section Header */}
               <div className="mb-4">
@@ -286,15 +287,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               {/* Divider */}
               <div className="border-t border-gray-100 my-4"></div>
             </div>
-          )}
-          
-          {!sidebarExpanded && (
-            <button 
-              onClick={() => setSidebarExpanded(true)}
-              className="absolute top-20 -right-3 p-1.5 bg-white rounded-full shadow-md text-gray-400 hover:text-gray-900"
-            >
-              <Menu size={14} />
-            </button>
           )}
         </div>
       </div>

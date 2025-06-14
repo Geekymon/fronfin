@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
 import FilterModal from '../common/FilterModal';
@@ -24,8 +24,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   isDetailPanelOpen = false,
   onCloseDetailPanel
 }) => {
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  // FIXED: Sidebar open by default and persist state across navigation
+  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
+    const saved = localStorage.getItem('sidebarExpanded');
+    return saved !== null ? JSON.parse(saved) : true; // Default to true (open)
+  });
   const [showFilterModal, setShowFilterModal] = useState(false);
+
+  // Persist sidebar state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('sidebarExpanded', JSON.stringify(sidebarExpanded));
+  }, [sidebarExpanded]);
   
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -81,7 +90,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         onFilterClick={() => setShowFilterModal(true)}
       />
       
-      {/* Main Content - Adjusted for fixed header and sidebar */}
+      {/* Main Content - Adjusted based on sidebar state */}
       <div 
         className={`flex flex-col ${sidebarExpanded ? 'ml-64' : 'ml-0'} flex-1 mt-16 transition-all duration-300`}
       >

@@ -122,15 +122,16 @@ const AnnouncementRow: React.FC<AnnouncementRowProps> = ({
         </div>
       </div>
 
-      {/* Category with refined styling */}
-      <div className="col-span-2">
+      {/* FIXED: Category with overflow protection */}
+      <div className="col-span-2 pr-2">
         <span 
-          className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium text-gray-700 "
+          className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium text-gray-700 max-w-full truncate block"
           style={{
             backgroundColor: '#E8F5E8',
             borderColor: '#C8E6C9',
             color: '#2E7D32'
           }}
+          title={categoryToDisplay}
         >
           {categoryToDisplay}
         </span>
