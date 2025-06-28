@@ -11,6 +11,7 @@ import { useWatchlist } from '../../context/WatchlistContext';
 import { useFilters } from '../../context/FilterContext';
 import StockPriceChart from './StockPriceChart';
 import CreateWatchlistModal from '../watchlist/CreateWatchlistModal.tsx';
+import { extractHeadline } from '../../utils/apiUtils';
 
 interface CompanyPageProps {
   company: Company;
@@ -30,21 +31,24 @@ const CompanyAnnouncementRow: React.FC<{
   // Extract clean preview text without company name and markdown formatting
   const getPreviewText = (summary: string, companyName: string): string => {
     // Remove company name from the beginning
-    let cleaned = summary.replace(new RegExp(`^${companyName}:?\\s*`, 'i'), '');
+    // let cleaned = summary.replace(new RegExp(`^${companyName}:?\\s*`, 'i'), '');
     
-    // Remove markdown formatting for preview
-    cleaned = cleaned
-      .replace(/\*\*Category:\*\*.*?(?=\*\*|$)/is, '') // Remove category line
-      .replace(/\*\*Headline:\*\*\s*/i, '') // Remove headline prefix
-      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
-      .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
-      .replace(/`(.*?)`/g, '$1') // Remove code formatting
-      .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove link formatting, keep text
-      .replace(/\n+/g, ' ') // Replace newlines with spaces
-      .trim();
+    // // Remove markdown formatting for preview
+    // cleaned = cleaned
+    //   .replace(/\*\*Category:\*\*.*?(?=\*\*|$)/is, '') // Remove category line
+    //   .replace(/\*\*Headline:\*\*\s*/i, '') // Remove headline prefix
+    //   .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
+    //   .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
+    //   .replace(/`(.*?)`/g, '$1') // Remove code formatting
+    //   .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove link formatting, keep text
+    //   .replace(/\n+/g, ' ') // Replace newlines with spaces
+    //   .trim();
     
-    // Return first 120 characters for preview
-    return cleaned.length > 120 ? cleaned.substring(0, 120) + '...' : cleaned;
+    // // Return first 120 characters for preview
+    const headlineToDisplay = extractHeadline(announcement.summary);
+    return headlineToDisplay ;
+    // return cleaned.length > 120 ? cleaned.substring(0, 120) + '...' : cleaned;
+    
   };
 
   const previewText = getPreviewText(announcement.summary, announcement.company);
@@ -159,29 +163,30 @@ const CompanyPage: React.FC<CompanyPageProps> = ({ company, onNavigate, onBack }
   
   // Fetch stock price data using the new API
   useEffect(() => {
-    const loadStockData = async () => {
-      if (!company.isin) {
-        console.log('No ISIN available for stock data');
-        return;
-      }
+  const loadStockData = async () => {
+    if (!company.isin) {
+      console.log('No ISIN available for stock data');
+      return;
+    }
 
-      setStockDataLoading(true);
-      setStockDataError(null);
-      
-      try {
-        console.log(`Fetching stock data for ISIN: ${company.isin}`);
-        const data = await fetchStockPriceData(company.isin);
-        setStockPriceData(data);
-      } catch (error) {
-        console.error('Error fetching stock data:', error);
-        setStockDataError('Failed to load stock price data');
-      } finally {
-        setStockDataLoading(false);
-      }
-    };
+    setStockDataLoading(true);
+    setStockDataError(null);
     
-    loadStockData();
-  }, [company.isin]);
+    try {
+      console.log(`Fetching stock data for ISIN: ${company.isin}`);
+      // Use default 1m range for company page overview
+      const data = await fetchStockPriceData(company.isin, '1m');
+      setStockPriceData(data);
+    } catch (error) {
+      console.error('Error fetching stock data:', error);
+      setStockDataError('Failed to load stock price data');
+    } finally {
+      setStockDataLoading(false);
+    }
+  };
+  
+  loadStockData();
+}, [company.isin]);
   
   // Toggle saved filing function
   const toggleSavedFiling = (id: string) => {

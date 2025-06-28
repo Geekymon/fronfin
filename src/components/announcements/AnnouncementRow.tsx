@@ -1,4 +1,4 @@
-// src/components/announcements/AnnouncementRow.tsx - Updated with green category tags
+// src/components/announcements/AnnouncementRow.tsx - FIXED green dot positioning
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Star, StarOff, Bell } from 'lucide-react';
@@ -35,25 +35,25 @@ const AnnouncementRow: React.FC<AnnouncementRowProps> = ({
   
   // Add animation and highlighting for new announcements
   useEffect(() => {
-  if (isNew) {
-    // Set highlight and animation
-    setIsHighlighted(true);
-    setIsAnimating(true);
-    setIsPulsing(true);
-    
-    // Only stop the pulse animation after 5 seconds, not the highlight
-    const animationTimer = setTimeout(() => {
-      setIsAnimating(false);
-      setIsPulsing(false);
-    }, 5000);
-    
-    // No timer to clear the highlight - it stays until clicked
-    
-    return () => {
-      clearTimeout(animationTimer);
-    };
-  }
-}, [isNew]);
+    if (isNew) {
+      // Set highlight and animation
+      setIsHighlighted(true);
+      setIsAnimating(true);
+      setIsPulsing(true);
+      
+      // Only stop the pulse animation after 5 seconds, not the highlight
+      const animationTimer = setTimeout(() => {
+        setIsAnimating(false);
+        setIsPulsing(false);
+      }, 5000);
+      
+      // No timer to clear the highlight - it stays until clicked
+      
+      return () => {
+        clearTimeout(animationTimer);
+      };
+    }
+  }, [isNew]);
 
   const handleRowClick = () => {
     // Mark as read when clicked
@@ -90,44 +90,44 @@ const AnnouncementRow: React.FC<AnnouncementRowProps> = ({
   return (
     <div
       ref={rowRef}
-      className={`grid grid-cols-12 px-6 py-4 hover:bg-gray-50/80 cursor-pointer transition-all duration-200 items-center ${viewedClass} ${highlightClass} ${animationClass} announcement-row-transition`}
+      className={`grid grid-cols-12 px-6 py-4 hover:bg-gray-50/80 cursor-pointer transition-all duration-200 items-center relative ${viewedClass} ${highlightClass} ${animationClass} announcement-row-transition`}
       onClick={handleRowClick}
       data-announcement-id={announcement.id}
       data-is-new={isNew ? 'true' : 'false'}
     >
-      {/* Indicator dot for unread or new announcements */}
+      {/* FIXED: Green dot indicator positioned properly within the row */}
       {(!isViewed || isHighlighted) && (
-        <div className={`absolute left-1 w-1 h-1 rounded-full ${isHighlighted ? 'bg-blue-500' : 'bg-green-500'} ${pulsingClass}`}></div>
+        <div className={`absolute left-2 top-1/2 transform -translate-y-1/2 w-2 h-2 rounded-full ${isHighlighted ? 'bg-blue-500' : 'bg-green-500'} ${pulsingClass}`}></div>
       )}
 
-      {/* Company information */}
-      <div className="col-span-3 pr-4">
+      {/* Company information - FIXED: Added left padding to account for dot */}
+      <div className="col-span-3 pr-4 pl-4">
         <div className="overflow-hidden">
           <div
-        className={`text-sm font-bold company-name break-words inline-block relative group ${isHighlighted ? 'text-blue-700' : ''}`}
-        onClick={(e) => onCompanyClick(companyDisplayName, e)}
+            className={`text-sm font-bold company-name break-words inline-block relative group ${isHighlighted ? 'text-blue-700' : ''}`}
+            onClick={(e) => onCompanyClick(companyDisplayName, e)}
           >
-        {companyDisplayName}
-        <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-black/80 transition-all duration-300 ease-in-out group-hover:w-full opacity-80"></span>
+            {companyDisplayName}
+            <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-black/80 transition-all duration-300 ease-in-out group-hover:w-full opacity-80"></span>
           </div>
         </div>
         <div className="text-xs text-gray-500 mt-1 truncate flex items-center">
           {companyDisplaySymbol}
           {isHighlighted && (
-        <span className="ml-2 text-xs font-medium text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full flex items-center">
-          <Bell size={10} className="mr-1" />
-          NEW
-        </span>
+            <span className="ml-2 text-xs font-medium text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full flex items-center">
+              <Bell size={10} className="mr-1" />
+              NEW
+            </span>
           )}
         </div>
       </div>
 
-      {/* FIXED: Category with overflow protection */}
+      {/* Category with overflow protection */}
       <div className="col-span-2 pr-2">
         <span 
           className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium text-gray-700 max-w-full truncate block"
           style={{
-            backgroundColor: '#E8F5E8',
+            backgroundColor: '#D1FAE4',
             borderColor: '#C8E6C9',
             color: '#2E7D32'
           }}

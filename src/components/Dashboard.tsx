@@ -1,4 +1,4 @@
-// src/components/Dashboard.tsx - Updated with new header layout and date filters
+// src/components/Dashboard.tsx - Updated with improved announcements container layout
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Calendar, Filter, RefreshCw, AlertTriangle, Star, StarOff, Bell } from 'lucide-react';
@@ -561,7 +561,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const renderConnectionError = () => {
     if (!socketContext || socketContext.connectionStatus === 'error') {
       return (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4 mx-6">
           <div className="flex items-center">
             <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
             <p className="text-sm text-red-700">
@@ -609,7 +609,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         )}
       </div>
 
-      {/* FIXED: Search Results Dropdown with proper layout */}
+      {/* Search Results Dropdown */}
       {showSearchResults && searchResults.length > 0 && (
         <div className="absolute z-40 mt-2 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
           <ul className="max-h-80 overflow-y-auto divide-y divide-gray-100">
@@ -622,7 +622,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="font-medium text-gray-900">
                   {company.NewName || company.newname || company.OldName || company.oldname}
                 </div>
-                {/* FIXED: Symbol on left, ISIN on right */}
                 <div className="flex items-center justify-between mt-1">
                   <div className="flex items-center gap-2">
                     {(company.NewNSEcode || company.newnsecode || company.OldNSEcode || company.oldnsecode) && (
@@ -661,7 +660,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       isDetailPanelOpen={!!selectedDetail}
       onCloseDetailPanel={() => setSelectedDetail(null)}
     >
-      {/* Date Filter Section - Only show when on Announcements page */}
+      {/* Date Filter Section */}
       <div className="bg-white border-b border-gray-100 px-6 py-2">
         <div className="flex justify-between items-center">
           {/* Quick Filter Buttons - Left side */}
@@ -722,187 +721,199 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Main content container with scrolling */}
-      <div className="flex flex-col h-full overflow-auto">
-        {/* Connection error message if needed */}
-        {renderConnectionError()}
+      {/* FIXED: Main content container - prevent unnecessary scrolling */}
+      <div className="flex flex-col flex-1 min-h-0">
+        
+        {/* Filter bars section - scrollable if needed */}
+        <div className="flex-shrink-0">
+          {/* Connection error message if needed */}
+          {renderConnectionError()}
 
-        {/* Company filter bar (optional) - will scroll away */}
-        {filters.selectedCompany && (
-          <div className="bg-white px-6 py-3 border-b border-gray-100 flex items-center justify-between">
-            <div className="flex items-center">
-              <span className="text-sm text-gray-500">Filtering by company:</span>
-              <span className="ml-2 text-sm font-medium text-black bg-gray-100 px-3 py-1 rounded-lg flex items-center">
-                {filters.selectedCompany}
+          {/* Company filter bar (optional) */}
+          {filters.selectedCompany && (
+            <div className="bg-white px-6 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center">
+                <span className="text-sm text-gray-500">Filtering by company:</span>
+                <span className="ml-2 text-sm font-medium text-black bg-gray-100 px-3 py-1 rounded-lg flex items-center">
+                  {filters.selectedCompany}
+                  <button
+                    onClick={() => setSelectedCompany(null)}
+                    className="ml-2 text-gray-400 hover:text-gray-700 focus:outline-none"
+                  >
+                    <span className="sr-only">Remove</span>
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedCompany(null)}
+                className="text-sm text-gray-500 hover:text-gray-900 focus:outline-none"
+              >
+                Clear filter
+              </button>
+            </div>
+          )}
+
+          {/* Category filter bar (optional) */}
+          {filters.selectedCategories.length > 0 && (
+            <div className="bg-white px-6 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="text-sm text-gray-500">Filtering by categories:</span>
+                {filters.selectedCategories.map(category => (
+                  <span key={category} className="text-sm font-medium text-black bg-gray-100 px-3 py-1 rounded-lg flex items-center">
+                    {category}
+                    <button
+                      onClick={() => setSelectedCategories(filters.selectedCategories.filter(c => c !== category))}
+                      className="ml-2 text-gray-400 hover:text-gray-700 focus:outline-none"
+                    >
+                      <span className="sr-only">Remove</span>
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <button
+                onClick={() => setSelectedCategories([])}
+                className="text-sm text-gray-500 hover:text-gray-900 focus:outline-none"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+
+          {/* Sentiment filter bar (optional) */}
+          {filters.selectedSentiments.length > 0 && (
+            <div className="bg-white px-6 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="text-sm text-gray-500">Filtering by sentiments:</span>
+                {filters.selectedSentiments.map(sentiment => (
+                  <span key={sentiment} className="text-sm font-medium text-black bg-gray-100 px-3 py-1 rounded-lg flex items-center">
+                    {sentiment}
+                    <button
+                      onClick={() => setSelectedSentiments(filters.selectedSentiments.filter(s => s !== sentiment))}
+                      className="ml-2 text-gray-400 hover:text-gray-700 focus:outline-none"
+                    >
+                      <span className="sr-only">Remove</span>
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <button
+                onClick={() => setSelectedSentiments([])}
+                className="text-sm text-gray-500 hover:text-gray-900 focus:outline-none"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* FIXED: Announcements Container - Properly constrained height */}
+        <div className="flex-1 px-6 py-4 min-h-0">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
+            
+            {/* Table Header - Fixed at top of container */}
+            <div className="sticky top-0 z-10 grid grid-cols-12 px-6 py-3 text-xs font-medium text-gray-500 uppercase bg-gray-50 border-b border-gray-200 rounded-t-2xl">
+              <div className="col-span-3 flex items-center">
+                <span>Company</span>
                 <button
-                  onClick={() => setSelectedCompany(null)}
-                  className="ml-2 text-gray-400 hover:text-gray-700 focus:outline-none"
+                  className="ml-2 p-1 rounded-full hover:bg-gray-200/60 text-gray-400 hover:text-gray-700 focus:outline-none transition-colors"
+                  onClick={() => openFilterModal('company')}
+                  title="Filter Companies"
                 >
-                  <span className="sr-only">Remove</span>
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
                   </svg>
                 </button>
-              </span>
-            </div>
-            <button
-              onClick={() => setSelectedCompany(null)}
-              className="text-sm text-gray-500 hover:text-gray-900 focus:outline-none"
-            >
-              Clear filter
-            </button>
-          </div>
-        )}
-
-        {/* Category filter bar (optional) - will scroll away */}
-        {filters.selectedCategories.length > 0 && (
-          <div className="bg-white px-6 py-3 border-b border-gray-100 flex items-center justify-between">
-            <div className="flex items-center flex-wrap gap-2">
-              <span className="text-sm text-gray-500">Filtering by categories:</span>
-              {filters.selectedCategories.map(category => (
-                <span key={category} className="text-sm font-medium text-black bg-gray-100 px-3 py-1 rounded-lg flex items-center">
-                  {category}
-                  <button
-                    onClick={() => setSelectedCategories(filters.selectedCategories.filter(c => c !== category))}
-                    className="ml-2 text-gray-400 hover:text-gray-700 focus:outline-none"
-                  >
-                    <span className="sr-only">Remove</span>
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              ))}
-            </div>
-            <button
-              onClick={() => setSelectedCategories([])}
-              className="text-sm text-gray-500 hover:text-gray-900 focus:outline-none"
-            >
-              Clear filters
-            </button>
-          </div>
-        )}
-
-        {/* Sentiment filter bar (optional) - will scroll away */}
-        {filters.selectedSentiments.length > 0 && (
-          <div className="bg-white px-6 py-3 border-b border-gray-100 flex items-center justify-between">
-            <div className="flex items-center flex-wrap gap-2">
-              <span className="text-sm text-gray-500">Filtering by sentiments:</span>
-              {filters.selectedSentiments.map(sentiment => (
-                <span key={sentiment} className="text-sm font-medium text-black bg-gray-100 px-3 py-1 rounded-lg flex items-center">
-                  {sentiment}
-                  <button
-                    onClick={() => setSelectedSentiments(filters.selectedSentiments.filter(s => s !== sentiment))}
-                    className="ml-2 text-gray-400 hover:text-gray-700 focus:outline-none"
-                  >
-                    <span className="sr-only">Remove</span>
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              ))}
-            </div>
-            <button
-              onClick={() => setSelectedSentiments([])}
-              className="text-sm text-gray-500 hover:text-gray-900 focus:outline-none"
-            >
-              Clear filters
-            </button>
-          </div>
-        )}
-
-        {/* Table with fixed header and scrollable content */}
-        <div className="flex-1 relative" ref={announcementListRef}>
-          {/* Table header */}
-          <div className="sticky top-0 z-10 grid grid-cols-12 px-6 py-3 text-xs font-medium text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
-            <div className="col-span-3 flex items-center">
-              <span>Company</span>
-              <button
-                className="ml-2 p-1 rounded-full hover:bg-gray-200/60 text-gray-400 hover:text-gray-700 focus:outline-none transition-colors"
-                onClick={() => openFilterModal('company')}
-                title="Filter Companies"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                </svg>
-              </button>
-            </div>
-            <div className="col-span-2 flex items-center">
-              <span>Category</span>
-              <button
-                className="ml-2 p-1 rounded-full hover:bg-gray-200/60 text-gray-400 hover:text-gray-700 focus:outline-none transition-colors"
-                onClick={() => openFilterModal('category')}
-                title="Filter Categories"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                </svg>
-              </button>
-            </div>
-            <div className="col-span-5">Summary</div>
-            <div className="col-span-1 text-center">Status</div>
-            <div className="col-span-1 text-right">Actions</div>
-          </div>
-
-          {/* Table content - scrollable area */}
-          <div className="bg-white">
-            {isLoading ? (
-              <div className="py-16 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-black"></div>
               </div>
-            ) : error ? (
-              <div className="py-16 flex items-center justify-center">
-                <div className="text-red-500">{error}</div>
+              <div className="col-span-2 flex items-center">
+                <span>Category</span>
                 <button
-                  onClick={handleRetry}
-                  className="ml-3 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg flex items-center"
+                  className="ml-2 p-1 rounded-full hover:bg-gray-200/60 text-gray-400 hover:text-gray-700 focus:outline-none transition-colors"
+                  onClick={() => openFilterModal('category')}
+                  title="Filter Categories"
                 >
-                  <RefreshCw size={16} className="mr-2" />
-                  Retry
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                  </svg>
                 </button>
               </div>
-            ) : displayedAnnouncements.length === 0 ? (
-              <div className="py-16 flex flex-col items-center justify-center">
-                <div className="text-gray-500 mb-4">
-                  {showSavedFilings
-                    ? "You don't have any saved filings yet"
-                    : "No announcements match your filters"}
-                </div>
-                {!showSavedFilings && (
-                  <button
-                    className="px-4 py-2 text-sm font-medium text-black bg-gray-100 rounded-lg hover:bg-gray-200"
-                    onClick={resetFilters}
-                  >
-                    Clear all filters
-                  </button>
-                )}
-              </div>
-            ) : (
-              displayedAnnouncements.map((announcement) => (
-                <AnnouncementRow
-                  key={announcement.id}
-                  announcement={announcement}
-                  isSaved={savedFilings.includes(announcement.id)}
-                  isViewed={viewedAnnouncements.includes(announcement.id)}
-                  onSave={toggleSavedFiling}
-                  onClick={handleAnnouncementClick}
-                  onCompanyClick={handleCompanyClick}
-                  isNew={false}
-                  onMarkAsRead={markAnnouncementAsRead}
-                />
-              ))
-            )}
-          </div>
+              <div className="col-span-5">Summary</div>
+              <div className="col-span-1 text-center">Status</div>
+              <div className="col-span-1 text-right">Actions</div>
+            </div>
 
-          {/* Pagination controls */}
-          {!isLoading && totalItems > 0 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-            />
-          )}
+            {/* Scrollable Content Area - Takes remaining space */}
+            <div className="flex-1 overflow-y-auto" ref={announcementListRef}>
+              {isLoading ? (
+                <div className="py-16 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-black"></div>
+                </div>
+              ) : error ? (
+                <div className="py-16 flex items-center justify-center">
+                  <div className="text-red-500">{error}</div>
+                  <button
+                    onClick={handleRetry}
+                    className="ml-3 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg flex items-center"
+                  >
+                    <RefreshCw size={16} className="mr-2" />
+                    Retry
+                  </button>
+                </div>
+              ) : displayedAnnouncements.length === 0 ? (
+                <div className="py-16 flex flex-col items-center justify-center">
+                  <div className="text-gray-500 mb-4">
+                    {showSavedFilings
+                      ? "You don't have any saved filings yet"
+                      : "No announcements match your filters"}
+                  </div>
+                  {!showSavedFilings && (
+                    <button
+                      className="px-4 py-2 text-sm font-medium text-black bg-gray-100 rounded-lg hover:bg-gray-200"
+                      onClick={resetFilters}
+                    >
+                      Clear all filters
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {displayedAnnouncements.map((announcement) => (
+                    <AnnouncementRow
+                      key={announcement.id}
+                      announcement={announcement}
+                      isSaved={savedFilings.includes(announcement.id)}
+                      isViewed={viewedAnnouncements.includes(announcement.id)}
+                      onSave={toggleSavedFiling}
+                      onClick={handleAnnouncementClick}
+                      onCompanyClick={handleCompanyClick}
+                      isNew={false}
+                      onMarkAsRead={markAnnouncementAsRead}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Pagination Controls - Fixed at bottom of container */}
+            {!isLoading && totalItems > 0 && (
+              <div className="border-t border-gray-100 bg-white rounded-b-2xl">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                />
+              </div>
+            )}
+
+          </div>
         </div>
 
         {/* Detail Panel */}

@@ -23,6 +23,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Use FilterContext for category and sentiment filtering
   const { setSelectedCategories, setSelectedSentiments, filters } = useFilters();
   
+  // Filter group expansion state
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
+  
   // Categories expansion state
   const [categoriesExpanded, setCategoriesExpanded] = useState(true);
   const [localSelectedCategories, setLocalSelectedCategories] = useState<string[]>(filters.selectedCategories || []);
@@ -31,26 +34,69 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [sentimentExpanded, setSentimentExpanded] = useState(true);
   const [localSelectedSentiments, setLocalSelectedSentiments] = useState<string[]>(filters.selectedSentiments || []);
   
-  // Categories list
-  const categories = [
-    "Annual Report", "Agreements/MoUs", "Anti-dumping Duty", "Buyback",
-    "Bonus/Stock Split", "Change in Address", "Change in MOA",
-    "Clarifications/Confirmations", "Closure of Factory", "Concall Transcript",
-    "Consolidation of Shares", "Credit Rating", "Debt Reduction",
-    "Debt & Financing", "Delisting", "Demerger", "Change in KMP",
-    "Demise of KMP", "Disruption of Operations", "Divestitures", "DRHP",
-    "Expansion", "Financial Results", "Fundraise - Preferential Issue",
-    "Fundraise - QIP", "Fundraise - Rights Issue", "Global Pharma Regulation",
-    "Incorporation/Cessation of Subsidiary", "Increase in Share Capital",
-    "Insolvency and Bankruptcy", "Interest Rates Updates", "Investor Presentation",
-    "Investor/Analyst Meet", "Joint Ventures", "Litigation & Notices",
-    "Mergers/Acquisitions", "Name Change", "New Order", "New Product",
-    "One Time Settlement (OTS)", "Open Offer", "Operational Update", "PLI Scheme",
-    "Procedural/Administrative", "Reduction in Share Capital",
-    "Regulatory Approvals/Orders", "Trading Suspension", "USFDA", "Board Meeting",
-    "AGM/EGM", "Dividend", "Corporate Action", "Management Changes",
-    "Strategic Update", "Other"
-  ];
+  // Categories organized into parent categories with subcategories
+  const categoryHierarchy = {
+    "Key Documents & Meetings": {
+      color: "#D1FAE4",
+      textColor: "#065F46",
+      items: ["Annual Report", "Investor/Analyst Meet", "Investor Presentation", "Concall Transcript"]
+    },
+    "Corporate Governance & Admin": {
+      color: "#FFE4E5",
+      textColor: "#991B1B",
+      items: ["Change in KMP", "Name Change", "Demise of KMP", "Change in Address", "Change in MOA"]
+    },
+    "Corporate Actions": {
+      color: "#FEF2C7",
+      textColor: "#92400E",
+      items: ["Mergers/Acquisitions", "Bonus/Stock Split", "Divestitures", "Buyback", "Consolidation of Shares", "Demerger", "Joint Ventures", "Incorporation/Cessation of Subsidiary", "Open Offer"]
+    },
+    "Capital & Financing": {
+      color: "#DBEAFE",
+      textColor: "#1E40AF",
+      items: ["Fundraise - Rights Issue", "Fundraise - Preferential Issue", "Increase in Share Capital", "Fundraise - QIP", "DRHP", "Reduction in Share Capital", "Debt & Financing", "Debt Reduction", "Interest Rates Updates", "One Time Settlement (OTS)"]
+    },
+    "Strategic & Business Operations": {
+      color: "#FCE7F3",
+      textColor: "#BE185D",
+      items: ["Agreements/MoUs", "Expansion", "Operational Update", "New Order", "New Product", "Closure of Factory", "Disruption of Operations", "PLI Scheme"]
+    },
+    "Financial Reporting & Ratings": {
+      color: "#EDE9FE",
+      textColor: "#5B21B6",
+      items: ["Financial Results", "Credit Rating"]
+    },
+    "Regulatory & Legal": {
+      color: "#FFF7ED",
+      textColor: "#C2410C",
+      items: ["Regulatory Approvals/Orders", "USFDA", "Global Pharma Regulation", "Litigation & Notices", "Insolvency and Bankruptcy", "Anti-dumping Duty", "Delisting", "Trading Suspension", "Clarifications/Confirmations"]
+    },
+    "Administrative Matters": {
+      color: "#E2E8F0",
+      textColor: "#475569",
+      items: ["Procedural/Administrative", "Board Meeting", "AGM/EGM", "Dividend", "Corporate Action", "Management Changes", "Strategic Update", "Other"]
+    }
+  };
+
+  // Expansion states for each parent category
+  const [parentCategoryExpansion, setParentCategoryExpansion] = useState<{[key: string]: boolean}>({
+    "Key Documents & Meetings": false,
+    "Corporate Governance & Admin": false,
+    "Corporate Actions": false,
+    "Capital & Financing": false,
+    "Strategic & Business Operations": false,
+    "Financial Reporting & Ratings": false,
+    "Regulatory & Legal": false,
+    "Administrative Matters": false
+  });
+
+  // Toggle parent category expansion
+  const toggleParentCategory = (parentCategory: string) => {
+    setParentCategoryExpansion(prev => ({
+      ...prev,
+      [parentCategory]: !prev[parentCategory]
+    }));
+  };
 
   // Sentiment options
   const sentiments = ["Positive", "Negative", "Neutral"];
@@ -124,173 +170,209 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [filters.selectedSentiments]);
 
   return (
-    <>
-      {/* FIXED: Complete collapse - w-0 and hidden when collapsed */}
-      <div 
-        className={`fixed left-0 text-sm top-16 h-[calc(100%-4rem)] bg-white shadow-md z-10 transition-all duration-300 ease-in-out overflow-hidden ${
-          sidebarExpanded ? 'w-64 opacity-100 visible' : 'w-0 opacity-0 invisible'
-        }`}
-      >
+    <div 
+      className={`fixed left-0 text-sm top-16 h-[calc(100%-4rem)] z-10 transition-all duration-300 ease-in-out ${
+        sidebarExpanded ? 'w-64 opacity-100 visible' : 'w-0 opacity-0 invisible'
+      }`}
+    >
+      {/* Single container wrapper with rounded corners and shadow */}
+      <div className="h-full m-4 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="flex flex-col h-full pt-6 pb-4 overflow-y-auto">
-          {/* Navigation Section */}
-          <div className="flex flex-col px-3 space-y-2 mb-6">
-            {/* Announcements Button */}
-            <button 
-              className={`flex items-center justify-start px-4 py-2 rounded-xl w-full ${
-                activePage === 'home' && !selectedCompany ? 'text-black bg-blue-100' : 'text-black'
-              } hover:bg-blue-50 transition-colors`}
-              onClick={() => onNavigate('home')}
-            >
-              <Home size={20} />
-              <span className="ml-3 font-medium">Announcements</span>
-            </button>
+          
+          {/* GROUP 1: Navigation Buttons (Always visible, no collapse) */}
+          <div className="px-3 mb-6">
+            <div className="space-y-2">
+              {/* Announcements Button */}
+              <button 
+                className={`flex items-center justify-start px-4 py-2 rounded-xl w-full ${
+                  activePage === 'home' && !selectedCompany ? 'text-black bg-blue-100' : 'text-black'
+                } hover:bg-blue-50 transition-colors`}
+                onClick={() => onNavigate('home')}
+              >
+                <Home size={20} />
+                <span className="ml-3 font-medium">Announcements</span>
+              </button>
 
-            {/* Watchlist Button */}
-            <button 
-              className={`flex items-center justify-start px-4 py-2 rounded-xl w-full ${
-                activePage === 'watchlist' ? 'text-black bg-blue-100' : 'text-black'
-              } hover:bg-blue-50 transition-colors`}
-              onClick={() => onNavigate('watchlist')}
-            >
-              <Star size={20} />
-              <span className="ml-3 font-medium">Watchlist</span>
-            </button>
+              {/* Watchlist Button */}
+              <button 
+                className={`flex items-center justify-start px-4 py-2 rounded-xl w-full ${
+                  activePage === 'watchlist' ? 'text-black bg-blue-100' : 'text-black'
+                } hover:bg-blue-50 transition-colors`}
+                onClick={() => onNavigate('watchlist')}
+              >
+                <Star size={20} />
+                <span className="ml-3 font-medium">Watchlist</span>
+              </button>
+            </div>
           </div>
 
-          {/* Filter Sections - Only show on Announcements page */}
+          {/* GROUP 2: Filters Section (Collapsible, Only show on Announcements page) */}
           {activePage === 'home' && (
-            <div className="px-3 mb-6">
-              {/* Filter Section Header */}
-              <div className="mb-4">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">Filters</h4>
-              </div>
+            <div className="px-3 flex-1">
+              <button 
+                className={`flex items-center justify-between w-full px-4 py-2 rounded-xl mb-4 ${
+                  filtersExpanded ? 'text-black bg-gray-100' : 'text-gray-400'
+                } hover:bg-gray-100 transition-colors`}
+                onClick={() => setFiltersExpanded(!filtersExpanded)}
+              >
+                <div className="flex items-center">
+                  <Filter size={18} />
+                  <span className="ml-3 font-medium">Filters</span>
+                </div>
+                <ChevronDown
+                  size={16}
+                  className={`transition-transform ${filtersExpanded ? 'rotate-180' : ''}`}
+                />
+              </button>
 
-              {/* Categories Filter */}
-              <div className="mb-4">
-                <button 
-                  className={`flex items-center justify-between w-full px-4 py-2 rounded-xl ${
-                    categoriesExpanded ? 'text-black bg-gray-100' : 'text-gray-400'
-                  } hover:bg-gray-100 transition-colors`}
-                  onClick={toggleCategories}
-                >
-                  <div className="flex items-center">
-                    <Filter size={18} />
-                    <span className="ml-3 font-medium">Categories</span>
-                  </div>
-                  <ChevronDown
-                    size={16}
-                    className={`transition-transform ${categoriesExpanded ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                
-                {/* Categories Content */}
-                {categoriesExpanded && (
-                  <div className="mt-3 px-1">
-                    <div className="max-h-56 overflow-y-auto pr-1">
-                      {categories.map(category => (
-                        <label 
-                          key={category} 
-                          className="flex items-center px-3 py-2 rounded-lg cursor-pointer text-gray-600 hover:bg-gray-50 group transition-colors"
-                        >
-                          <input 
-                            type="checkbox" 
-                            checked={localSelectedCategories.includes(category)}
-                            onChange={() => toggleCategory(category)}
-                            className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black mr-3"
-                          />
-                          <span className="text-sm truncate">{category}</span>
-                        </label>
-                      ))}
-                    </div>
+              {filtersExpanded && (
+                <div className="space-y-4">
+                  {/* Categories Filter */}
+                  <div>
+                    <button 
+                      className={`flex items-center justify-between w-full px-4 py-2 rounded-xl ${
+                        categoriesExpanded ? 'text-black bg-gray-100' : 'text-gray-400'
+                      } hover:bg-gray-100 transition-colors`}
+                      onClick={toggleCategories}
+                    >
+                      <div className="flex items-center">
+                        <Filter size={18} />
+                        <span className="ml-3 font-medium">Categories</span>
+                      </div>
+                      <ChevronDown
+                        size={16}
+                        className={`transition-transform ${categoriesExpanded ? 'rotate-180' : ''}`}
+                      />
+                    </button>
                     
-                    {/* Category action buttons */}
-                    <div className="flex justify-between mt-3 px-3">
-                      <button
-                        className="text-sm font-medium text-gray-500 hover:text-gray-700"
-                        onClick={clearCategoryFilters}
-                      >
-                        Clear
-                      </button>
-                      <button
-                        className="px-3 py-1 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-900"
-                        onClick={applyCategoryFilters}
-                      >
-                        Apply
-                      </button>
-                    </div>
+                    {categoriesExpanded && (
+                      <div className="mt-3 px-1">
+                        <div className="max-h-80 overflow-y-auto pr-1 space-y-4">
+                          {Object.entries(categoryHierarchy).map(([parentCategory, categoryData]) => (
+                            <div key={parentCategory} className="space-y-2">
+                              {/* Parent Category Header */}
+                              <button
+                                className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                                onClick={() => toggleParentCategory(parentCategory)}
+                              >
+                                <span className="text-sm font-medium text-gray-700">{parentCategory}</span>
+                                <ChevronDown
+                                  size={14}
+                                  className={`transition-transform text-gray-400 ${
+                                    parentCategoryExpansion[parentCategory] ? 'rotate-180' : ''
+                                  }`}
+                                />
+                              </button>
+                              
+                              {/* Subcategories as Pills */}
+                              {parentCategoryExpansion[parentCategory] && (
+                                <div className="flex flex-wrap gap-2 px-2">
+                                  {categoryData.items.map(subcategory => (
+                                    <button
+                                      key={subcategory}
+                                      onClick={() => toggleCategory(subcategory)}
+                                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                                        localSelectedCategories.includes(subcategory)
+                                          ? 'ring-2 ring-gray-400'
+                                          : 'hover:opacity-80'
+                                      }`}
+                                      style={{
+                                        backgroundColor: categoryData.color,
+                                        color: categoryData.textColor
+                                      }}
+                                    >
+                                      {subcategory}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className="flex justify-between mt-4 px-3">
+                          <button
+                            className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                            onClick={clearCategoryFilters}
+                          >
+                            Clear
+                          </button>
+                          <button
+                            className="px-3 py-1 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-900"
+                            onClick={applyCategoryFilters}
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* Sentiment Filter - Positioned directly below Categories */}
-              <div className="mb-4">
-                <button 
-                  className={`flex items-center justify-between w-full px-4 py-2 rounded-xl ${
-                    sentimentExpanded ? 'text-black bg-gray-100' : 'text-gray-400'
-                  } hover:bg-gray-100 transition-colors`}
-                  onClick={toggleSentimentSection}
-                >
-                  <div className="flex items-center">
-                    <Heart size={18} />
-                    <span className="ml-3 font-medium">Sentiment</span>
+                  {/* Sentiment Filter */}
+                  <div>
+                    <button 
+                      className={`flex items-center justify-between w-full px-4 py-2 rounded-xl ${
+                        sentimentExpanded ? 'text-black bg-gray-100' : 'text-gray-400'
+                      } hover:bg-gray-100 transition-colors`}
+                      onClick={toggleSentimentSection}
+                    >
+                      <div className="flex items-center">
+                        <Heart size={18} />
+                        <span className="ml-3 font-medium">Sentiment</span>
+                      </div>
+                      <ChevronDown
+                        size={16}
+                        className={`transition-transform ${sentimentExpanded ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+
+                    {sentimentExpanded && (
+                      <div className="mt-3 px-1">
+                        <div className="space-y-1">
+                          {sentiments.map(sentiment => (
+                            <label 
+                              key={sentiment} 
+                              className="flex items-center px-3 py-2 rounded-lg cursor-pointer text-gray-600 hover:bg-gray-50 group transition-colors"
+                            >
+                              <input 
+                                type="checkbox" 
+                                checked={localSelectedSentiments.includes(sentiment)}
+                                onChange={() => toggleSentiment(sentiment)}
+                                className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black mr-3"
+                              />
+                              <span className="text-sm font-medium flex-1">{sentiment}</span>
+                              <span className={`w-2 h-2 rounded-full ${
+                                sentiment === 'Positive' ? 'bg-green-500' :
+                                sentiment === 'Negative' ? 'bg-red-500' : 'bg-yellow-500'
+                              }`}></span>
+                            </label>
+                          ))}
+                        </div>
+                        
+                        <div className="flex justify-between mt-3 px-3">
+                          <button
+                            className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                            onClick={clearSentimentFilters}
+                          >
+                            Clear
+                          </button>
+                          <button
+                            className="px-3 py-1 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-900"
+                            onClick={applySentimentFilters}
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <ChevronDown
-                    size={16}
-                    className={`transition-transform ${sentimentExpanded ? 'rotate-180' : ''}`}
-                  />
-                </button>
-
-                {/* Sentiment Content */}
-                {sentimentExpanded && (
-                  <div className="mt-3 px-1">
-                    <div className="space-y-1">
-                      {sentiments.map(sentiment => (
-                        <label 
-                          key={sentiment} 
-                          className="flex items-center px-3 py-2 rounded-lg cursor-pointer text-gray-600 hover:bg-gray-50 group transition-colors"
-                        >
-                          <input 
-                            type="checkbox" 
-                            checked={localSelectedSentiments.includes(sentiment)}
-                            onChange={() => toggleSentiment(sentiment)}
-                            className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black mr-3"
-                          />
-                          <span className="text-sm font-medium flex-1">{sentiment}</span>
-                          {/* Visual indicator for sentiment */}
-                          <span className={`w-2 h-2 rounded-full ${
-                            sentiment === 'Positive' ? 'bg-green-500' :
-                            sentiment === 'Negative' ? 'bg-red-500' : 'bg-yellow-500'
-                          }`}></span>
-                        </label>
-                      ))}
-                    </div>
-                    
-                    {/* Sentiment action buttons */}
-                    <div className="flex justify-between mt-3 px-3">
-                      <button
-                        className="text-sm font-medium text-gray-500 hover:text-gray-700"
-                        onClick={clearSentimentFilters}
-                      >
-                        Clear
-                      </button>
-                      <button
-                        className="px-3 py-1 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-900"
-                        onClick={applySentimentFilters}
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-gray-100 my-4"></div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

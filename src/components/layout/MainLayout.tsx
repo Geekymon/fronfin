@@ -90,12 +90,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         onFilterClick={() => setShowFilterModal(true)}
       />
       
-      {/* Main Content - Adjusted based on sidebar state */}
+      {/* FIXED: Main Content - Properly constrained to prevent overflow */}
       <div 
-        className={`flex flex-col ${sidebarExpanded ? 'ml-64' : 'ml-0'} flex-1 mt-16 transition-all duration-300`}
+        className={`flex flex-col ${sidebarExpanded ? 'ml-64' : 'ml-0'} flex-1 mt-16 transition-all duration-300 overflow-hidden`}
       >
-        {/* Main content */}
-        {children}
+        {/* Main content - Uses full remaining space */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {children}
+        </div>
       </div>
       
       {/* Filter Modal */}

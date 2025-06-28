@@ -487,27 +487,50 @@ const generateTestData = (count: number): ProcessedAnnouncement[] => {
 };
 
 // NEW METHOD: Fetch stock price data from the new API endpoint
-export const fetchStockPriceData = async (isin: string): Promise<StockPriceData[]> => {
+export const fetchStockPriceData = async (isin: string, range: string = '1m'): Promise<StockPriceData[]> => {
   try {
-    console.log(`Fetching stock price data for ISIN: ${isin}`);
+    console.log(`Fetching stock price data for ISIN: ${isin}, range: ${range}`);
     
-    // FIXED: Use apiClient which automatically includes auth token via interceptor
-    const response = await apiClient.get(`/stock_price?isin=${encodeURIComponent(isin)}`);
+    // Get the auth token explicitly
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      console.error('No auth token found for stock price API');
+      throw new Error('Authentication required');
+    }
     
-    if (response.data && Array.isArray(response.data)) {
-      // Sort by date to ensure chronological order (oldest first for charts)
-      const sortedData = response.data.sort((a: StockPriceData, b: StockPriceData) => 
-        new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
+    // Build the URL with both isin and range parameters
+    const url = `/stock_price?isin=${encodeURIComponent(isin)}&range=${encodeURIComponent(range)}`;
+    
+    // Make request with explicit headers to ensure auth token is included
+    const response = await apiClient.get(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    // Handle the actual API response format: { data: [...], metadata: {...}, success: true }
+    if (response.data && response.data.success && response.data.data && Array.isArray(response.data.data)) {
+      // The API returns data ordered by date (most recent first according to docs)
+      // For charts, we typically want oldest first, so reverse the array
+      const sortedData = [...response.data.data].reverse();
       
-      console.log(`Received ${sortedData.length} stock price data points`);
+      console.log(`Received ${sortedData.length} stock price data points for range ${range}`);
+      console.log('Metadata:', response.data.metadata);
       return sortedData;
     } else {
-      console.warn('Invalid stock price data format received');
+      console.warn('Invalid stock price data format received:', response.data);
       return [];
     }
   } catch (error) {
     console.error('Error fetching stock price data:', error);
+    
+    // Log more details about the error
+    if (axios.isAxiosError(error)) {
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      console.error('Request headers:', error.config?.headers);
+    }
     
     // If the API fails, return empty array so component can handle gracefully
     return [];

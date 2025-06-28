@@ -9,7 +9,7 @@ interface StockPriceChartProps {
   exchange?: string;
 }
 
-type TimeRange = '1W' | '1M' | '3M' | '6M' | '1Y' | 'MAX';
+type TimeRange = '1w' | '1m' | '3m' | '6m' | '1y' | 'max';
 
 const StockPriceChart: React.FC<StockPriceChartProps> = ({ 
   symbol, 
@@ -19,7 +19,7 @@ const StockPriceChart: React.FC<StockPriceChartProps> = ({
   const [historicalData, setHistoricalData] = useState<StockPriceData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('1M');
+  const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('1m');
   const [priceChange, setPriceChange] = useState<{ value: number; percentage: number }>({ value: 0, percentage: 0 });
   const [retryCount, setRetryCount] = useState(0);
   
@@ -28,23 +28,22 @@ const StockPriceChart: React.FC<StockPriceChartProps> = ({
     setError(null);
     
     try {
-      console.log(`Fetching historical data for ${symbol} (ISIN: ${isin})`);
+      console.log(`Fetching historical data for ${symbol} (ISIN: ${isin}) with range: ${selectedTimeRange}`);
       
-      // Fetch data from the new API endpoint
-      const data = await fetchStockPriceData(isin);
+      // Fetch data from the API with the selected time range
+      const data = await fetchStockPriceData(isin, selectedTimeRange);
       
       if (data.length === 0) {
-        setError('No historical data available for this stock');
+        setError('No historical data available for this time range');
         setHistoricalData([]);
+        setPriceChange({ value: 0, percentage: 0 });
       } else {
-        // Filter data based on selected time range
-        const filteredData = filterDataByTimeRange(data, selectedTimeRange);
-        setHistoricalData(filteredData);
+        setHistoricalData(data);
         
-        // Calculate price change
-        if (filteredData.length > 1) {
-          const firstPrice = filteredData[0].close;
-          const lastPrice = filteredData[filteredData.length - 1].close;
+        // Calculate price change between first and last data points
+        if (data.length > 1) {
+          const firstPrice = data[0].close;
+          const lastPrice = data[data.length - 1].close;
           const change = lastPrice - firstPrice;
           const changePercentage = (change / firstPrice) * 100;
           
@@ -52,46 +51,18 @@ const StockPriceChart: React.FC<StockPriceChartProps> = ({
             value: parseFloat(change.toFixed(2)),
             percentage: parseFloat(changePercentage.toFixed(2))
           });
+        } else {
+          setPriceChange({ value: 0, percentage: 0 });
         }
       }
     } catch (err) {
       console.error('Error fetching historical data:', err);
       setError('Failed to fetch historical data. Please try again.');
+      setHistoricalData([]);
+      setPriceChange({ value: 0, percentage: 0 });
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Filter data based on time range
-  const filterDataByTimeRange = (data: StockPriceData[], range: TimeRange): StockPriceData[] => {
-    if (data.length === 0) return data;
-
-    const now = new Date();
-    let cutoffDate: Date;
-
-    switch (range) {
-      case '1W':
-        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case '1M':
-        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case '3M':
-        cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        break;
-      case '6M':
-        cutoffDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
-        break;
-      case '1Y':
-        cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-        break;
-      case 'MAX':
-        return data; // Return all data
-      default:
-        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    }
-
-    return data.filter(point => new Date(point.date) >= cutoffDate);
   };
   
   useEffect(() => {
@@ -100,14 +71,44 @@ const StockPriceChart: React.FC<StockPriceChartProps> = ({
     }
   }, [isin, selectedTimeRange, retryCount]);
   
-  // Format date for x-axis
+  // Format date for x-axis based on time range
   const formatXAxis = (tickItem: string) => {
     const date = new Date(tickItem);
     
-    if (selectedTimeRange === '1W' || selectedTimeRange === '1M') {
-      return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
-    } else {
-      return date.toLocaleDateString([], { month: 'short', year: '2-digit' });
+    switch (selectedTimeRange) {
+      case '1w':
+        return date.toLocaleDateString([], { weekday: 'short' });
+      case '1m':
+        return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+      case '3m':
+      case '6m':
+        return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+      case '1y':
+        return date.toLocaleDateString([], { month: 'short', year: '2-digit' });
+      case 'max':
+        return date.toLocaleDateString([], { month: 'short', year: '2-digit' });
+      default:
+        return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+    }
+  };
+  
+  // Calculate tick count based on time range
+  const getTickCount = () => {
+    switch (selectedTimeRange) {
+      case '1w':
+        return 7;
+      case '1m':
+        return 6;
+      case '3m':
+        return 6;
+      case '6m':
+        return 6;
+      case '1y':
+        return 8;
+      case 'max':
+        return 8;
+      default:
+        return 6;
     }
   };
   
@@ -136,21 +137,29 @@ const StockPriceChart: React.FC<StockPriceChartProps> = ({
   
   // Time range selector
   const TimeRangeSelector = () => {
-    const ranges: TimeRange[] = ['1W', '1M', '3M', '6M', '1Y', 'MAX'];
+    const ranges: Array<{value: TimeRange, label: string}> = [
+      { value: '1w', label: '1W' },
+      { value: '1m', label: '1M' },
+      { value: '3m', label: '3M' },
+      { value: '6m', label: '6M' },
+      { value: '1y', label: '1Y' },
+      { value: 'max', label: 'MAX' }
+    ];
     
     return (
       <div className="flex space-x-1 mb-4">
         {ranges.map(range => (
           <button
-            key={range}
+            key={range.value}
             className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-              selectedTimeRange === range 
+              selectedTimeRange === range.value 
                 ? 'bg-black text-white' 
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
-            onClick={() => setSelectedTimeRange(range)}
+            onClick={() => setSelectedTimeRange(range.value)}
+            disabled={isLoading}
           >
-            {range}
+            {range.label}
           </button>
         ))}
       </div>
@@ -159,6 +168,26 @@ const StockPriceChart: React.FC<StockPriceChartProps> = ({
   
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
+  };
+
+  // Get time range description
+  const getTimeRangeDescription = () => {
+    switch (selectedTimeRange) {
+      case '1w':
+        return 'Last 7 days';
+      case '1m':
+        return 'Last 30 days';
+      case '3m':
+        return 'Last 3 months';
+      case '6m':
+        return 'Last 6 months';
+      case '1y':
+        return 'Last year';
+      case 'max':
+        return 'All available data';
+      default:
+        return 'Last 30 days';
+    }
   };
 
   // Show loading state if no ISIN provided
@@ -219,7 +248,7 @@ const StockPriceChart: React.FC<StockPriceChartProps> = ({
           </div>
         ) : historicalData.length === 0 ? (
           <div className="h-full flex items-center justify-center">
-            <div className="text-gray-500">No historical data available</div>
+            <div className="text-gray-500">No historical data available for {getTimeRangeDescription().toLowerCase()}</div>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -239,6 +268,7 @@ const StockPriceChart: React.FC<StockPriceChartProps> = ({
                 axisLine={false}
                 tickLine={false}
                 tick={{ fontSize: 10, fill: '#9ca3af' }}
+                tickCount={getTickCount()}
               />
               <YAxis 
                 domain={['auto', 'auto']}
@@ -277,9 +307,10 @@ const StockPriceChart: React.FC<StockPriceChartProps> = ({
       
       <div className="mt-2 text-xs text-gray-500 flex items-center justify-center">
         <Calendar size={12} className="mr-1" />
-        {selectedTimeRange === '1W' ? 'Last 7 days' : 
-         selectedTimeRange === '1M' ? 'Last 30 days' : selectedTimeRange === '3M' ? 'Last 3 months' :
-         selectedTimeRange === '6M' ? 'Last 6 months' : selectedTimeRange === '1Y' ? 'Last year' : 'All available data'}
+        {getTimeRangeDescription()}
+        {historicalData.length > 0 && (
+          <span className="ml-2">• {historicalData.length} data points</span>
+        )}
       </div>
     </div>
   );
