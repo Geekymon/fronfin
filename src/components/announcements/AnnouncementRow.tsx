@@ -1,9 +1,10 @@
-// src/components/announcements/AnnouncementRow.tsx - FIXED green dot positioning
+// src/components/announcements/AnnouncementRow.tsx - FIXED with correct category colors
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Star, StarOff, Bell } from 'lucide-react';
 import { ProcessedAnnouncement } from '../../api';
 import { extractHeadline } from '../../utils/apiUtils';
+import { getCategoryColors } from '../../utils/categoryUtils';
 
 interface AnnouncementRowProps {
   announcement: ProcessedAnnouncement;
@@ -81,16 +82,19 @@ const AnnouncementRow: React.FC<AnnouncementRowProps> = ({
   // Use the displayDate if available
   const dateToDisplay = announcement.displayDate || announcement.date;
 
-  // Custom CSS for animation
+  // Get the correct colors for this category
+  const categoryColors = getCategoryColors(categoryToDisplay);
+
+  // Custom CSS for animation with enhanced gradients
   const animationClass = isAnimating ? 'animate-pulse-slow' : '';
-  const highlightClass = isHighlighted ? 'bg-blue-50' : '';
+  const highlightClass = isHighlighted ? 'bg-gradient-to-r from-blue-50 to-blue-100/50' : '';
   const viewedClass = isViewed && !isHighlighted ? 'text-gray-600' : 'text-gray-800';
   const pulsingClass = isPulsing ? 'badge-pulse' : '';
 
   return (
     <div
       ref={rowRef}
-      className={`grid grid-cols-12 px-6 py-4 hover:bg-gray-50/80 cursor-pointer transition-all duration-200 items-center relative ${viewedClass} ${highlightClass} ${animationClass} announcement-row-transition`}
+      className={`grid grid-cols-12 px-6 py-4 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100/30 cursor-pointer transition-all duration-200 items-center relative ${viewedClass} ${highlightClass} ${animationClass} announcement-row-transition`}
       onClick={handleRowClick}
       data-announcement-id={announcement.id}
       data-is-new={isNew ? 'true' : 'false'}
@@ -122,14 +126,13 @@ const AnnouncementRow: React.FC<AnnouncementRowProps> = ({
         </div>
       </div>
 
-      {/* Category with overflow protection */}
+      {/* Category with FIXED colors - now uses correct category-specific colors */}
       <div className="col-span-2 pr-2">
         <span 
-          className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium text-gray-700 max-w-full truncate block"
+          className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium max-w-full truncate block"
           style={{
-            backgroundColor: '#D1FAE4',
-            borderColor: '#C8E6C9',
-            color: '#2E7D32'
+            backgroundColor: categoryColors.backgroundColor,
+            color: categoryColors.textColor
           }}
           title={categoryToDisplay}
         >

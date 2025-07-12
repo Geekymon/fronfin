@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Home, Star, Bell, Search, Menu, ChevronRight, Plus, Edit, AlertTriangle, MoreHorizontal, Trash2, Filter, ChevronDown, Heart } from 'lucide-react';
 import { useFilters } from '../../context/FilterContext';
 import FilterModal from '../common/FilterModal';
+import { categoryHierarchy } from '../../utils/categoryUtils';
 
 interface SidebarProps {
   activePage: 'home' | 'watchlist' | 'company';
@@ -33,61 +34,17 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Sentiment expansion state
   const [sentimentExpanded, setSentimentExpanded] = useState(true);
   const [localSelectedSentiments, setLocalSelectedSentiments] = useState<string[]>(filters.selectedSentiments || []);
-  
-  // Categories organized into parent categories with subcategories
-  const categoryHierarchy = {
-    "Key Documents & Meetings": {
-      color: "#D1FAE4",
-      textColor: "#065F46",
-      items: ["Annual Report", "Investor/Analyst Meet", "Investor Presentation", "Concall Transcript"]
-    },
-    "Corporate Governance & Admin": {
-      color: "#FFE4E5",
-      textColor: "#991B1B",
-      items: ["Change in KMP", "Name Change", "Demise of KMP", "Change in Address", "Change in MOA"]
-    },
-    "Corporate Actions": {
-      color: "#FEF2C7",
-      textColor: "#92400E",
-      items: ["Mergers/Acquisitions", "Bonus/Stock Split", "Divestitures", "Buyback", "Consolidation of Shares", "Demerger", "Joint Ventures", "Incorporation/Cessation of Subsidiary", "Open Offer"]
-    },
-    "Capital & Financing": {
-      color: "#DBEAFE",
-      textColor: "#1E40AF",
-      items: ["Fundraise - Rights Issue", "Fundraise - Preferential Issue", "Increase in Share Capital", "Fundraise - QIP", "DRHP", "Reduction in Share Capital", "Debt & Financing", "Debt Reduction", "Interest Rates Updates", "One Time Settlement (OTS)"]
-    },
-    "Strategic & Business Operations": {
-      color: "#FCE7F3",
-      textColor: "#BE185D",
-      items: ["Agreements/MoUs", "Expansion", "Operational Update", "New Order", "New Product", "Closure of Factory", "Disruption of Operations", "PLI Scheme"]
-    },
-    "Financial Reporting & Ratings": {
-      color: "#EDE9FE",
-      textColor: "#5B21B6",
-      items: ["Financial Results", "Credit Rating"]
-    },
-    "Regulatory & Legal": {
-      color: "#FFF7ED",
-      textColor: "#C2410C",
-      items: ["Regulatory Approvals/Orders", "USFDA", "Global Pharma Regulation", "Litigation & Notices", "Insolvency and Bankruptcy", "Anti-dumping Duty", "Delisting", "Trading Suspension", "Clarifications/Confirmations"]
-    },
-    "Administrative Matters": {
-      color: "#E2E8F0",
-      textColor: "#475569",
-      items: ["Procedural/Administrative", "Board Meeting", "AGM/EGM", "Dividend", "Corporate Action", "Management Changes", "Strategic Update", "Other"]
-    }
-  };
 
-  // Expansion states for each parent category
+  // Expansion states for each parent category - ALL OPEN BY DEFAULT
   const [parentCategoryExpansion, setParentCategoryExpansion] = useState<{[key: string]: boolean}>({
-    "Key Documents & Meetings": false,
-    "Corporate Governance & Admin": false,
-    "Corporate Actions": false,
-    "Capital & Financing": false,
-    "Strategic & Business Operations": false,
-    "Financial Reporting & Ratings": false,
-    "Regulatory & Legal": false,
-    "Administrative Matters": false
+    "Key Documents & Meetings": true,
+    "Corporate Governance & Admin": true,
+    "Corporate Actions": true,
+    "Capital & Financing": true,
+    "Strategic & Business Operations": true,
+    "Financial Reporting & Ratings": true,
+    "Regulatory & Legal": true,
+    "Administrative Matters": true
   });
 
   // Toggle parent category expansion
@@ -171,53 +128,60 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div 
-      className={`fixed left-0 text-sm top-16 h-[calc(100%-4rem)] z-10 transition-all duration-300 ease-in-out ${
-        sidebarExpanded ? 'w-64 opacity-100 visible' : 'w-0 opacity-0 invisible'
+      className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-gradient-to-b from-white to-gray-50/30 border-r border-gray-200 z-20 transition-all duration-300 ease-in-out flex flex-col ${
+        sidebarExpanded ? 'w-64' : 'w-0'
       }`}
     >
-      {/* Single container wrapper with rounded corners and shadow */}
-      <div className="h-full m-4 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="flex flex-col h-full pt-6 pb-4 overflow-y-auto">
-          
-          {/* GROUP 1: Navigation Buttons (Always visible, no collapse) */}
-          <div className="px-3 mb-6">
-            <div className="space-y-2">
-              {/* Announcements Button */}
-              <button 
-                className={`flex items-center justify-start px-4 py-2 rounded-xl w-full ${
-                  activePage === 'home' && !selectedCompany ? 'text-black bg-blue-100' : 'text-black'
-                } hover:bg-blue-50 transition-colors`}
-                onClick={() => onNavigate('home')}
-              >
-                <Home size={20} />
-                <span className="ml-3 font-medium">Announcements</span>
-              </button>
+      {/* Sidebar content - only render when expanded */}
+      <div className={`flex flex-col h-full overflow-hidden transition-opacity duration-300 ${sidebarExpanded ? 'opacity-100' : 'opacity-0'}`}>
+        
+        {/* Navigation Section - Fixed at top with subtle gradient */}
+        <div className="flex-none px-4 py-6 border-b border-gray-100 bg-gradient-to-r from-white to-gray-50/50">
+          <nav className="space-y-1">
+            {/* Announcements Button */}
+            <button 
+              className={`flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activePage === 'home' && !selectedCompany 
+                  ? 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-900 shadow-sm' 
+                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+              onClick={() => onNavigate('home')}
+            >
+              <Home size={18} className="mr-3" />
+              Announcements
+            </button>
 
-              {/* Watchlist Button */}
-              <button 
-                className={`flex items-center justify-start px-4 py-2 rounded-xl w-full ${
-                  activePage === 'watchlist' ? 'text-black bg-blue-100' : 'text-black'
-                } hover:bg-blue-50 transition-colors`}
-                onClick={() => onNavigate('watchlist')}
-              >
-                <Star size={20} />
-                <span className="ml-3 font-medium">Watchlist</span>
-              </button>
-            </div>
-          </div>
+            {/* Watchlist Button */}
+            <button 
+              className={`flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activePage === 'watchlist' 
+                  ? 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-900 shadow-sm' 
+                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+              onClick={() => onNavigate('watchlist')}
+            >
+              <Star size={18} className="mr-3" />
+              Watchlist
+            </button>
+          </nav>
+        </div>
 
-          {/* GROUP 2: Filters Section (Collapsible, Only show on Announcements page) */}
-          {activePage === 'home' && (
-            <div className="px-3 flex-1">
+        {/* Filters Section - Scrollable content with subtle background gradient */}
+        {activePage === 'home' && (
+          <div className="flex-1 overflow-y-auto bg-gradient-to-b from-transparent to-gray-50/20">
+            <div className="px-4 py-4">
+              {/* Filters Header */}
               <button 
-                className={`flex items-center justify-between w-full px-4 py-2 rounded-xl mb-4 ${
-                  filtersExpanded ? 'text-black bg-gray-100' : 'text-gray-400'
-                } hover:bg-gray-100 transition-colors`}
+                className={`flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors mb-3 ${
+                  filtersExpanded 
+                    ? 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-900 shadow-sm' 
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
                 onClick={() => setFiltersExpanded(!filtersExpanded)}
               >
                 <div className="flex items-center">
-                  <Filter size={18} />
-                  <span className="ml-3 font-medium">Filters</span>
+                  <Filter size={18} className="mr-3" />
+                  Filters
                 </div>
                 <ChevronDown
                   size={16}
@@ -226,40 +190,48 @@ const Sidebar: React.FC<SidebarProps> = ({
               </button>
 
               {filtersExpanded && (
-                <div className="space-y-4">
+                <div className="space-y-6">
+                  
                   {/* Categories Filter */}
                   <div>
                     <button 
-                      className={`flex items-center justify-between w-full px-4 py-2 rounded-xl ${
-                        categoriesExpanded ? 'text-black bg-gray-100' : 'text-gray-400'
-                      } hover:bg-gray-100 transition-colors`}
+                      className={`flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        categoriesExpanded 
+                          ? 'bg-gradient-to-r from-gray-50 to-blue-50/30 text-gray-900' 
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
                       onClick={toggleCategories}
                     >
                       <div className="flex items-center">
-                        <Filter size={18} />
-                        <span className="ml-3 font-medium">Categories</span>
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                        Categories
+                        {localSelectedCategories.length > 0 && (
+                          <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
+                            {localSelectedCategories.length}
+                          </span>
+                        )}
                       </div>
                       <ChevronDown
-                        size={16}
+                        size={14}
                         className={`transition-transform ${categoriesExpanded ? 'rotate-180' : ''}`}
                       />
                     </button>
                     
                     {categoriesExpanded && (
-                      <div className="mt-3 px-1">
-                        <div className="max-h-80 overflow-y-auto pr-1 space-y-4">
+                      <div className="mt-3">
+                        <div className="max-h-80 overflow-y-auto space-y-1">
                           {Object.entries(categoryHierarchy).map(([parentCategory, categoryData]) => (
-                            <div key={parentCategory} className="space-y-2">
-                              {/* Parent Category Header */}
+                            <div key={parentCategory}>
+                              {/* Parent Category */}
                               <button
-                                className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                                className="flex items-center justify-between w-full px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 rounded transition-colors"
                                 onClick={() => toggleParentCategory(parentCategory)}
                               >
-                                <span className="text-sm font-medium text-gray-700">{parentCategory}</span>
-                                <ChevronDown
-                                  size={14}
-                                  className={`transition-transform text-gray-400 ${
-                                    parentCategoryExpansion[parentCategory] ? 'rotate-180' : ''
+                                <span className="truncate">{parentCategory}</span>
+                                <ChevronRight
+                                  size={12}
+                                  className={`transition-transform ml-1 flex-none ${
+                                    parentCategoryExpansion[parentCategory] ? 'rotate-90' : ''
                                   }`}
                                 />
                               </button>
@@ -277,7 +249,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                           : 'hover:opacity-80'
                                       }`}
                                       style={{
-                                        backgroundColor: categoryData.color,
+                                        backgroundColor: categoryData.backgroundColor,
                                         color: categoryData.textColor
                                       }}
                                     >
@@ -290,15 +262,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                           ))}
                         </div>
                         
-                        <div className="flex justify-between mt-4 px-3">
+                        {/* Category Actions */}
+                        <div className="flex items-center justify-between mt-4 px-3">
                           <button
-                            className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                            className="text-xs font-medium text-gray-500 hover:text-gray-700"
                             onClick={clearCategoryFilters}
                           >
                             Clear
                           </button>
                           <button
-                            className="px-3 py-1 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-900"
+                            className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-black to-gray-900 rounded hover:from-gray-900 hover:to-black transition-all duration-200"
                             onClick={applyCategoryFilters}
                           >
                             Apply
@@ -311,28 +284,35 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {/* Sentiment Filter */}
                   <div>
                     <button 
-                      className={`flex items-center justify-between w-full px-4 py-2 rounded-xl ${
-                        sentimentExpanded ? 'text-black bg-gray-100' : 'text-gray-400'
-                      } hover:bg-gray-100 transition-colors`}
+                      className={`flex items-center justify-between w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        sentimentExpanded 
+                          ? 'bg-gradient-to-r from-gray-50 to-green-50/30 text-gray-900' 
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
                       onClick={toggleSentimentSection}
                     >
                       <div className="flex items-center">
-                        <Heart size={18} />
-                        <span className="ml-3 font-medium">Sentiment</span>
+                        <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                        Sentiment
+                        {localSelectedSentiments.length > 0 && (
+                          <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
+                            {localSelectedSentiments.length}
+                          </span>
+                        )}
                       </div>
                       <ChevronDown
-                        size={16}
+                        size={14}
                         className={`transition-transform ${sentimentExpanded ? 'rotate-180' : ''}`}
                       />
                     </button>
 
                     {sentimentExpanded && (
-                      <div className="mt-3 px-1">
+                      <div className="mt-3">
                         <div className="space-y-1">
                           {sentiments.map(sentiment => (
                             <label 
                               key={sentiment} 
-                              className="flex items-center px-3 py-2 rounded-lg cursor-pointer text-gray-600 hover:bg-gray-50 group transition-colors"
+                              className="flex items-center px-3 py-2 text-sm cursor-pointer text-gray-700 hover:bg-gray-50 rounded transition-colors"
                             >
                               <input 
                                 type="checkbox" 
@@ -340,7 +320,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 onChange={() => toggleSentiment(sentiment)}
                                 className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black mr-3"
                               />
-                              <span className="text-sm font-medium flex-1">{sentiment}</span>
+                              <span className="flex-1 font-medium">{sentiment}</span>
                               <span className={`w-2 h-2 rounded-full ${
                                 sentiment === 'Positive' ? 'bg-green-500' :
                                 sentiment === 'Negative' ? 'bg-red-500' : 'bg-yellow-500'
@@ -349,15 +329,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                           ))}
                         </div>
                         
-                        <div className="flex justify-between mt-3 px-3">
+                        {/* Sentiment Actions */}
+                        <div className="flex items-center justify-between mt-4 px-3">
                           <button
-                            className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                            className="text-xs font-medium text-gray-500 hover:text-gray-700"
                             onClick={clearSentimentFilters}
                           >
                             Clear
                           </button>
                           <button
-                            className="px-3 py-1 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-900"
+                            className="px-3 py-1 text-xs font-medium text-white bg-gradient-to-r from-black to-gray-900 rounded hover:from-gray-900 hover:to-black transition-all duration-200"
                             onClick={applySentimentFilters}
                           >
                             Apply
@@ -369,8 +350,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

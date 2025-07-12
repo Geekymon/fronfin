@@ -46,11 +46,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         />
       )}
 
-      {/* Header - Full Width with clean title display */}
-      <div className="fixed top-0 left-0 right-0 z-30 bg-white shadow-sm border-b border-gray-100">
+      {/* Header - Full Width with clean title display and subtle gradient */}
+      <div className="fixed top-0 left-0 right-0 z-30 bg-gradient-to-r from-white via-white to-gray-50/20 shadow-sm border-b border-gray-100">
         <div className="flex items-center h-16 px-6">
           {/* Left side - Sidebar toggle and MarketWire branding */}
-          <div className="flex items-center space-x-4 w-80">
+          <div className={`flex items-center space-x-4 transition-all duration-300 ${sidebarExpanded ? 'w-64' : 'w-16'}`}>
             {/* Sidebar Toggle Button */}
             <button
               onClick={() => setSidebarExpanded(!sidebarExpanded)}
@@ -60,14 +60,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               <Menu size={20} />
             </button>
             
-            {/* MarketWire Logo */}
-            <button 
-              onClick={() => onNavigate('home')}
-              className="font-black text-xl rounded-2xl flex items-center justify-center font-medium"
-              title="MarketWire Home"
-            >
-              MarketWire
-            </button>
+            {/* MarketWire Logo - show when sidebar is expanded */}
+            {sidebarExpanded && (
+              <button 
+                onClick={() => onNavigate('home')}
+                className="font-black text-xl rounded-2xl flex items-center justify-center font-medium transition-opacity duration-300"
+                title="MarketWire Home"
+              >
+                MarketWire
+              </button>
+            )}
           </div>
           
           {/* Center - Header content (search bar) */}
@@ -76,11 +78,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           </div>
           
           {/* Right side - Empty for balance */}
-          <div className="w-80"></div>
+          <div className={`transition-all duration-300 ${sidebarExpanded ? 'w-64' : 'w-16'}`}></div>
         </div>
       </div>
 
-      {/* Sidebar */}
+      {/* Sidebar - Integrated, no floating appearance */}
       <Sidebar 
         activePage={activePage}
         selectedCompany={selectedCompany}
@@ -90,12 +92,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         onFilterClick={() => setShowFilterModal(true)}
       />
       
-      {/* FIXED: Main Content - Properly constrained to prevent overflow */}
+      {/* Main Content - Properly positioned relative to sidebar */}
       <div 
-        className={`flex flex-col ${sidebarExpanded ? 'ml-64' : 'ml-0'} flex-1 mt-16 transition-all duration-300 overflow-hidden`}
+        className={`flex flex-col transition-all duration-300 ease-in-out ${
+          sidebarExpanded ? 'ml-64' : 'ml-0'
+        } flex-1 mt-16 overflow-hidden`}
       >
-        {/* Main content - Uses full remaining space */}
-        <div className="flex-1 flex flex-col min-h-0">
+        {/* Main content - Uses full remaining space with subtle gradient background */}
+        <div className="flex-1 flex flex-col min-h-0 bg-gradient-to-br from-gray-50 to-gray-100/40">
           {children}
         </div>
       </div>
